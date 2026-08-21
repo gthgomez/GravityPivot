@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gravity Pivot - Production-Ready Refactored Edition</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Inline CSS compilation to eliminate Tailwind compiler overhead */
+    *, ::before, ::after {
+      box-sizing: border-box;
+      border-width: 0;
+      border-style: solid;
+      border-color: #1e293b;
+    }
+    html {
+      line-height: 1.5;
+      -webkit-text-size-adjust: 100%;
+      tab-size: 4;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    body {
+      margin: 0;
+      background-color: #03050a;
+      color: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.04) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.04) 0%, transparent 40%);
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Utility layouts */
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .gap-1 { gap: 0.25rem; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-3 { gap: 0.75rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-6 { gap: 1.5rem; }
+    .grid { display: grid; }
+    .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    @media (min-width: 768px) {
+      .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    /* Navigation system views */
+    .view-panel {
+      display: none;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .view-panel.view-active {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    /* Styled classes */
+    .interactive-btn {
+      background-color: #0f172a;
+      color: #94a3b8;
+      border: 1px solid #1e293b;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .interactive-btn:hover {
+      background-color: #1e293b;
+      color: #f8fafc;
+    }
+    .tab-active {
+      color: #22d3ee !important;
+      background-color: rgba(6, 182, 212, 0.08) !important;
+      border-color: rgba(6, 182, 212, 0.3) !important;
+    }
+    .card-terminal {
+      background-color: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 0.75rem;
+      padding: 1rem;
+    }
+    canvas {
+      image-rendering: pixelated;
+      background-color: #030407;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-100">
+
+  <!-- Header Panel -->
+  <header style="border-bottom: 1px solid #0f172a; background-color: rgba(2, 6, 12, 0.8); backdrop-filter: blur(8px); padding: 0.75rem 1.5rem; display: flex; justify-content: space-between; align-items: center; z-index: 20;">
+    <div class="flex items-center gap-3">
+      <div style="width: 0.875rem; height: 0.875rem; background-color: #22d3ee; border-radius: 9999px; box-shadow: 0 0 10px #22d3ee;" aria-hidden="true"></div>
+      <div>
+        <h1 style="font-size: 1.125rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #22d3ee; margin: 0; line-height: 1;">Gravity Pivot</h1>
+        <p class="mono" style="font-size: 8px; color: #64748b; letter-spacing: 0.1em; margin: 0; margin-top: 0.25rem;">REFRACTOR COCKPIT OPERATING DECK</p>
+      </div>
+    </div>
+    
+    <!-- Mini Status Indicators -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded-lg text-xs font-mono">
+        <span class="text-slate-500">SHIELD:</span>
+        <span id="mini-shield" class="text-emerald-400 font-bold">1/1</span>
+        <span class="text-slate-700">|</span>
+        <span class="text-slate-500">CORES:</span>
+        <span id="mini-cores" class="text-amber-400 font-bold">0</span>
+      </div>
+      
+      <button id="unmute-btn" class="interactive-btn flex items-center gap-2" aria-label="Toggle Sound Synthesizer">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 1rem; height: 1rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+        </svg>
+        <span class="mono" style="font-size: 9px; letter-spacing: 0.05em;">SYNTH LAYER</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Dock -->
+  <nav style="max-width: 42rem; margin: 1rem auto 0 auto; width: 100%; padding: 0 1rem; z-index: 10;">
+    <div style="background-color: rgba(2, 6, 12, 0.95); border: 1px solid #0f172a; border-radius: 0.75rem; padding: 0.25rem; display: flex; gap: 0.25rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+      <button id="tab-cockpit" class="interactive-btn tab-active" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;" aria-label="Navigate to Cockpit View">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 1rem; height: 1rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <span style="font-size: 9px; font-weight: 700;">COCKPIT</span>
+      </button>
+      <button id="tab-terminal" class="interactive-btn" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;" aria-label="Navigate to Upgrades Terminal">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 1rem; height: 1rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+        </svg>
+        <span style="font-size: 9px; font-weight: 700;">UPGRADES</span>
+      </button>
+      <button id="tab-telemetry" class="interactive-btn" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;" aria-label="Navigate to Diagnostics and Telemetry">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 1rem; height: 1rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <span style="font-size: 9px; font-weight: 700;">DIAGNOSTICS</span>
+      </button>
+      <button id="tab-calibration" class="interactive-btn" style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;" aria-label="Navigate to Calibration Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 1rem; height: 1rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+        <span style="font-size: 9px; font-weight: 700;">CALIBRATE</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Interactive Sandbox Workspace Container -->
+  <main style="flex: 1; width: 100%; max-width: 56rem; margin: 0 auto; padding: 1rem; position: relative; display: flex; flex-direction: column; justify-content: center;">
+    
+    <!-- Pause State Backdrop -->
+    <div id="pause-overlay" style="position: absolute; inset: 1rem; background-color: rgba(2, 6, 12, 0.85); backdrop-filter: blur(4px); border-radius: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;">
+      <div style="width: 2.25rem; height: 2.25rem; border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 9999px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 1.125rem; height: 1.125rem; color: #22d3ee;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p class="mono" style="font-size: 11px; color: #22d3ee; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">Flight Dynamics Paused</p>
+      <button id="resume-btn" class="interactive-btn" style="background-color: #06b6d4; color: #02060c; border: none; font-weight: 700;">Resume Flight Control</button>
+    </div>
+
+    <!-- VIEWPORT 1: COCKPIT GAME -->
+    <section id="view-cockpit" class="view-panel view-active flex-col gap-3">
+      <div style="position: relative; background-color: #02060c; border-radius: 1rem; overflow: hidden; border: 1px solid #0f172a; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.55);">
+        
+        <!-- Live HUD Info Bar -->
+        <div style="background-color: rgba(2, 6, 12, 0.9); border-bottom: 1px solid #0f172a; padding: 0.75rem 1rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;">
+          <div class="flex items-center gap-4">
+            <div class="flex flex-col">
+              <span class="mono" style="font-size: 8px; color: #64748b; text-transform: uppercase;">Shield Energy</span>
+              <div id="shield-heart-container" class="flex gap-1 mt-1"></div>
+            </div>
+            <div style="width: 1px; height: 1.5rem; background-color: #0f172a;"></div>
+            <div class="flex flex-col">
+              <span class="mono" style="font-size: 8px; color: #64748b; text-transform: uppercase;">Sector Progress</span>
+              <div class="flex items-center gap-1.5 mt-1" style="width: 7rem;">
+                <span id="sector-hud-label" class="mono" style="font-size: 10px; font-weight: 700; color: #22d3ee;">SEC 1</span>
+                <div style="flex: 1; background-color: #02060c; height: 4px; border-radius: 9999px; overflow: hidden; border: 1px solid #0f172a;">
+                  <div id="sector-hud-bar" style="background-color: #22d3ee; height: 100%; transition: width 0.3s ease; width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <div class="flex flex-col" style="align-items: flex-end;">
+              <span class="mono" style="font-size: 8px; color: #64748b; text-transform: uppercase;">Harvested Cores</span>
+              <span id="hud-run-cores" class="mono text-amber-400 font-bold" style="font-size: 12px; margin-top: 0.25rem;">0</span>
+            </div>
+            <div style="width: 1px; height: 1.5rem; background-color: #0f172a;"></div>
+            <div class="flex flex-col" style="align-items: flex-end;">
+              <span class="mono" style="font-size: 8px; color: #64748b; text-transform: uppercase;">Telemetry Output</span>
+              <div class="flex items-center gap-1 mt-1">
+                <span id="hud-score" class="mono font-bold text-white" style="font-size: 12px;">00000</span>
+                <span id="hud-combo" class="mono" style="font-size: 9px; background-color: #082f49; color: #38bdf8; border: 1px solid #0369a1; padding: 0.125rem 0.25rem; border-radius: 0.25rem;">x1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas Body -->
+        <div style="position: relative; width: 100%; overflow: hidden;">
+          <canvas id="game-canvas" style="width: 100%; height: 300px; display: block;"></canvas>
+          
+          <!-- Launch Prompt Overlay -->
+          <div id="launch-prompt-overlay" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(2, 6, 12, 0.85); backdrop-filter: blur(4px); z-index: 10; transition: opacity 0.3s ease;">
+            <span class="mono" style="font-size: 9px; color: #22d3ee; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem;">Flight Navigation Engaged</span>
+            <h2 style="font-size: 1.25rem; font-weight: 900; color: #ffffff; letter-spacing: -0.025em; text-transform: uppercase; margin: 0;">COCKPIT ONLINE</h2>
+            <button id="btn-splash-launch" class="interactive-btn flex items-center gap-2" style="margin-top: 0.75rem; background-color: #06b6d4; color: #02060c; font-weight: 700; border: none;" aria-label="Activate Ship Fusion Engines">
+              <svg xmlns="http://www.w3.org/2000/svg" style="width: 1rem; height: 1rem; fill: currentColor;" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              <span>LAUNCH FUSION ENGINES</span>
+            </button>
+            <p class="mono" style="font-size: 8px; color: #64748b; margin-top: 0.5rem; text-transform: uppercase;">[ Keyboard Controls: Space = Swing, R = Reset ]</p>
+          </div>
+
+          <!-- Large Sector Milestone Popup Overlay -->
+          <div id="sector-milestone-popup" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(2, 6, 12, 0.85); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: all 0.5s ease; z-index: 10;">
+            <span class="mono" style="font-size: 9px; color: #22d3ee; letter-spacing: 0.1em; text-transform: uppercase;">Transition Tunnel Cleared</span>
+            <h2 id="sector-milestone-title" style="font-size: 1.75rem; font-weight: 900; color: #ffffff; letter-spacing: -0.025em; text-transform: uppercase; margin: 0;">SECTOR 2 CLEARED</h2>
+            <p class="mono" style="font-size: 10px; color: #94a3b8; margin-top: 0.25rem;">+1000 Bonus Score, Shields Re-aligned!</p>
+          </div>
+        </div>
+
+        <!-- Cockpit Quick Launch Bar -->
+        <div style="background-color: rgba(2, 6, 12, 0.8); border-top: 1px solid #0f172a; padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between;">
+          <button id="btn-play" class="interactive-btn" style="border-color: #0f172a; font-weight: 700; color: #22d3ee;" aria-label="Reset flight path run">
+            <span>Reset Run</span>
+          </button>
+          <span id="danger-warning" class="mono" style="font-size: 8px; font-weight: 700; color: #f43f5e; background-color: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); padding: 0.125rem 0.5rem; border-radius: 9999px; opacity: 0; transition: opacity 0.2s ease;" role="alert">
+            CRITICAL HULL PROXIMITY
+          </span>
+          <div class="mono" style="font-size: 9px; color: #475569; text-transform: uppercase; display: none; margin-left: auto;">
+            Hold Screen or Space to Pivot
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEWPORT 2: SHOP / UPGRADES -->
+    <section id="view-terminal" class="view-panel view-hidden flex-col gap-4">
+      <div class="card-terminal flex flex-col gap-5">
+        
+        <div style="border-bottom: 1px solid #0f172a; padding-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h2 style="font-size: 1.125rem; font-weight: 700; margin: 0; color: #f8fafc;">Upgrades Terminal</h2>
+            <p class="mono" style="font-size: 11px; color: #64748b; margin: 0; margin-top: 0.25rem;">Enhance spacecraft hardware units with collected cores.</p>
+          </div>
+          <div style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid #1e293b; padding: 0.375rem 0.75rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.50rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <span class="mono" style="font-size: 10px; color: #94a3b8;">BALANCE:</span>
+            <div class="flex items-center gap-1 font-mono">
+              <span id="shop-cores-count" style="font-size: 0.875rem; font-weight: 700; color: #fbbf24;">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-4">
+          
+          <!-- Card: Shield -->
+          <div style="background-color: rgba(15, 23, 42, 0.2); border: 1px solid #0f172a; border-radius: 0.75rem; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem;">
+            <div class="flex flex-col gap-1.5">
+              <div class="flex justify-between items-center">
+                <span style="font-size: 13px; font-weight: 700; color: #e2e8f0;">Reinforced Frame</span>
+                <span id="upg-shield-level" class="mono" style="font-size: 9px; color: #22d3ee; background-color: rgba(6, 182, 212, 0.05); padding: 0.125rem 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(6, 182, 212, 0.2);">Lvl 1</span>
+              </div>
+              <p style="font-size: 11px; color: #94a3b8; margin: 0; line-height: 1.4;">
+                Increases internal shielding parameters, allowing your craft to withstand hull impacts. Maximum Limit: 5.
+              </p>
+            </div>
+            <button id="buy-shield-btn" class="interactive-btn flex justify-between items-center" style="width: 100%; border-radius: 0.5rem; font-size: 10px; font-weight: 700;" aria-label="Purchase Reinforced Frame Upgrade">
+              <span id="buy-shield-label">Install Hardware Upgrade</span>
+              <span id="buy-shield-cost" class="mono" style="color: #fbbf24;">10 Cores</span>
+            </button>
+          </div>
+
+          <!-- Card: Magnet -->
+          <div style="background-color: rgba(15, 23, 42, 0.2); border: 1px solid #0f172a; border-radius: 0.75rem; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem;">
+            <div class="flex flex-col gap-1.5">
+              <div class="flex justify-between items-center">
+                <span style="font-size: 13px; font-weight: 700; color: #e2e8f0;">Gravity Magnet</span>
+                <span id="upg-magnet-level" class="mono" style="font-size: 9px; color: #fbbf24; background-color: rgba(245, 158, 11, 0.05); padding: 0.125rem 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(245, 158, 11, 0.2);">Lvl 1</span>
+              </div>
+              <p style="font-size: 11px; color: #94a3b8; margin: 0; line-height: 1.4;">
+                Amplifies core collection reach, pulling passing energy fields towards your ship automatically. Maximum Limit: 5.
+              </p>
+            </div>
+            <button id="buy-magnet-btn" class="interactive-btn flex justify-between items-center" style="width: 100%; border-radius: 0.5rem; font-size: 10px; font-weight: 700;" aria-label="Purchase Gravity Magnet Upgrade">
+              <span id="buy-magnet-label">Install Hardware Upgrade</span>
+              <span id="buy-magnet-cost" class="mono" style="color: #fbbf24;">15 Cores</span>
+            </button>
+          </div>
+
+          <!-- Card: Tether -->
+          <div style="background-color: rgba(15, 23, 42, 0.2); border: 1px solid #0f172a; border-radius: 0.75rem; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1rem;">
+            <div class="flex flex-col gap-1.5">
+              <div class="flex justify-between items-center">
+                <span style="font-size: 13px; font-weight: 700; color: #e2e8f0;">Tether Extender</span>
+                <span id="upg-tether-level" class="mono" style="font-size: 9px; color: #10b981; background-color: rgba(16, 185, 129, 0.05); padding: 0.125rem 0.5rem; border-radius: 0.25rem; border: 1px solid rgba(16, 185, 129, 0.2);">Lvl 1</span>
+              </div>
+              <p style="font-size: 11px; color: #94a3b8; margin: 0; line-height: 1.4;">
+                Improves tether range tolerances ($R_{\max}$) on navigation nodes. Maximum Limit: 5.
+              </p>
+            </div>
+            <button id="buy-tether-btn" class="interactive-btn flex justify-between items-center" style="width: 100%; border-radius: 0.5rem; font-size: 10px; font-weight: 700;" aria-label="Purchase Tether Extender Upgrade">
+              <span id="buy-tether-label">Install Hardware Upgrade</span>
+              <span id="buy-tether-cost" class="mono" style="color: #fbbf24;">20 Cores</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEWPORT 3: DIAGNOSTICS & TELEMETRY -->
+    <section id="view-telemetry" class="view-panel view-hidden flex-col gap-3">
+      <div class="grid md:grid-cols-3 gap-3">
+        
+        <!-- Live System Readouts -->
+        <div class="md:col-span-2" style="background-color: #02060c; border-radius: 1rem; padding: 1rem; border: 1px solid #0f172a; display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+          <h3 style="font-size: 0.875rem; font-weight: 700; color: #f1f5f9; display: flex; align-items: center; gap: 0.375rem; margin: 0;">
+            <div style="width: 0.5rem; height: 0.5rem; border-radius: 9999px; background-color: #22d3ee;" aria-hidden="true"></div>
+            Real-time Telemetry Metrics
+          </h3>
+          <div class="grid md:grid-cols-2 gap-2 font-mono" style="font-size: 10px;">
+            <div style="background-color: rgba(15, 23, 42, 0.5); padding: 0.625rem; border-radius: 0.5rem; border: 1px solid #0f172a;">
+              <span style="display: block; font-size: 8px; color: #64748b; margin-bottom: 0.125rem;">ORBIT SIGNAL CROSS</span>
+              <span id="telemetry-sigma" class="font-bold text-cyan-400">N/A</span>
+            </div>
+            <div style="background-color: rgba(15, 23, 42, 0.5); padding: 0.625rem; border-radius: 0.5rem; border: 1px solid #0f172a;">
+              <span style="display: block; font-size: 8px; color: #64748b; margin-bottom: 0.125rem;">VELOCITY MULTIPLIER</span>
+              <span id="telemetry-velocity" class="font-bold text-emerald-400">0.00 / s</span>
+            </div>
+            <div style="background-color: rgba(15, 23, 42, 0.5); padding: 0.625rem; border-radius: 0.5rem; border: 1px solid #0f172a;">
+              <span style="display: block; font-size: 8px; color: #64748b; margin-bottom: 0.125rem;">MAX ACTIVE TETHER</span>
+              <span id="telemetry-reach" class="font-bold text-indigo-400">180px</span>
+            </div>
+            <div style="background-color: rgba(15, 23, 42, 0.5); padding: 0.625rem; border-radius: 0.5rem; border: 1px solid #0f172a;">
+              <span style="display: block; font-size: 8px; color: #64748b; margin-bottom: 0.125rem;">SESSION CORES UNLOCKED</span>
+              <span id="telemetry-cores" class="font-bold text-amber-400">0</span>
+            </div>
+          </div>
+
+          <!-- Dynamic Audio Synth Tuning Stems -->
+          <div style="background-color: rgba(15, 23, 42, 0.3); border: 1px solid #0f172a; border-radius: 0.75rem; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.375rem;">
+            <span class="mono" style="font-size: 8px; color: #f472b6; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">Acoustic Synthesizer Feedback</span>
+            <div class="grid md:grid-cols-3 gap-2 text-center font-mono" style="font-size: 10px;">
+              <div style="background-color: rgba(2, 6, 12, 0.6); padding: 0.375rem; border-radius: 0.375rem; border: 1px solid #0f172a;">
+                <span style="display: block; font-size: 8px; color: #64748b; margin-bottom: 0.125rem;">Drone Freq</span>
+                <span id="synth-freq" class="font-bold text-pink-400">110 Hz</span>
+              </div>
+              <div style="background-color: rgba(2, 6, 12, 0.6); padding: 0.375rem; border-radius: 0.375rem; border: 1px solid #0f172a;">
+                <span style="display: block; font-size: 8px; color: #64748b; margin-bottom: 0.125rem;">Filter Sweep</span>
+                <span id="synth-mod" class="font-bold text-cyan-400">1.2x</span>
+              </div>
+              <div style="background-color: rgba(2, 6, 12, 0.6); padding: 0.375rem; border-radius: 0.375rem; border: 1px solid #0f172a;">
+                <span style="display: block; font-size: 8px; color: #64748b; margin-bottom: 0.125rem;">Tempo Modulation</span>
+                <span id="synth-tempo" class="font-bold text-emerald-400">1.0x</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logging Terminal -->
+        <div style="background-color: #02060c; border-radius: 1rem; padding: 1rem; border: 1px solid #0f172a; display: flex; flex-direction: column; gap: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+          <h3 style="font-size: 11px; font-weight: 700; color: #94a3b8; margin: 0;">LOG TRANSMISSION STREAM</h3>
+          <div id="metric-log" class="mono" style="flex: 1; background-color: rgba(2, 6, 12, 0.4); border: 1px solid #0f172a; border-radius: 0.5rem; padding: 0.625rem; height: 9rem; overflow-y: auto; font-size: 9px; line-height: 1.5;">
+            <div>[INIT] Diagnostics stream aligned. Ready for data transmission.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEWPORT 4: CALIBRATION SETTINGS -->
+    <section id="view-calibration" class="view-panel view-hidden flex-col gap-3">
+      <div style="background-color: #02060c; border-radius: 1rem; padding: 1.25rem; border: 1px solid #0f172a; display: flex; flex-direction: column; gap: 1.25rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+        
+        <div>
+          <h2 style="font-size: 1rem; font-weight: 700; color: #f1f5f9; margin: 0;">System Calibration Settings</h2>
+          <p class="mono" style="font-size: 11px; color: #64748b; margin: 0; margin-top: 0.25rem;">Fine-tune physics matrices and dynamic edge fallbacks.</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          
+          <!-- Left: Environmental Sliders -->
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <h3 class="mono" style="font-size: 10px; font-weight: 700; color: #22d3ee; text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Engine Parameters</h3>
+            
+            <div>
+              <div class="flex justify-between font-mono" style="font-size: 10px; color: #94a3b8; margin-bottom: 0.25rem;">
+                <span>Linear Propulsion Speed</span>
+                <span id="val-speed">6.0</span>
+              </div>
+              <input id="slide-speed" type="range" min="3.0" max="15.0" step="0.5" value="6.0" style="width: 100%; height: 4px; background-color: #1e293b; border-radius: 9999px; outline: none; cursor: pointer;">
+            </div>
+
+            <div>
+              <div class="flex justify-between font-mono" style="font-size: 10px; color: #94a3b8; margin-bottom: 0.25rem;">
+                <span>Sub-stepping Divisions ($N$)</span>
+                <span id="val-substeps">4</span>
+              </div>
+              <input id="slide-substeps" type="range" min="1" max="10" step="1" value="4" style="width: 100%; height: 4px; background-color: #1e293b; border-radius: 9999px; outline: none; cursor: pointer;">
+            </div>
+
+            <div>
+              <div class="flex justify-between font-mono" style="font-size: 10px; color: #94a3b8; margin-bottom: 0.25rem;">
+                <span>Near-Miss Target Envelope</span>
+                <span id="val-buffer">30px</span>
+              </div>
+              <input id="slide-buffer" type="range" min="15" max="60" step="5" value="30" style="width: 100%; height: 4px; background-color: #1e293b; border-radius: 9999px; outline: none; cursor: pointer;">
+            </div>
+          </div>
+
+          <!-- Right: Vulnerability Matrix -->
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; background-color: rgba(15, 23, 42, 0.2); padding: 1rem; border: 1px solid #0f172a; border-radius: 0.75rem;">
+            <h3 class="mono" style="font-size: 10px; font-weight: 700; color: #f472b6; text-transform: uppercase; letter-spacing: 0.05em; margin: 0;">Audit Toggles (Sandbox Mode)</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 11px;">
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" id="toggle-substep" checked style="background-color: #02060c; border: 1px solid #1e293b; border-radius: 0.25rem;">
+                <div class="flex flex-col">
+                  <span style="color: #e2e8f0; font-weight: 700;">Sub-stepping Calculations (Fix #2)</span>
+                  <span style="font-size: 9px; color: #64748b; margin-top: 0.125rem;">Averts positional tunneling at high velocity frames.</span>
+                </div>
+              </label>
+
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" id="toggle-safety" checked style="background-color: #02060c; border: 1px solid #1e293b; border-radius: 0.25rem;">
+                <div class="flex flex-col">
+                  <span style="color: #e2e8f0; font-weight: 700;">Clearance Safety Splines (Fix #4)</span>
+                  <span style="font-size: 9px; color: #64748b; margin-top: 0.125rem;">Ensures gaps are always mathematically navigable.</span>
+                </div>
+              </label>
+
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" id="toggle-singularity" checked style="background-color: #02060c; border: 1px solid #1e293b; border-radius: 0.25rem;">
+                <div class="flex flex-col">
+                  <span style="color: #e2e8f0; font-weight: 700;">Collinear Fallback Protection (Fix #1)</span>
+                  <span style="font-size: 9px; color: #64748b; margin-top: 0.125rem;">Prevents spatial zero-radius lock soft-locks.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Navigation & Engine Logic Initialization -->
+  <script>
+    // --- PERSISTENT STATE MANAGEMENT ---
+    class GameSaveState {
+      constructor() {
+        this.totalCores = 0;
+        this.shieldLvl = 1;
+        this.magnetLvl = 1;
+        this.tetherLvl = 1;
+        this.load();
+      }
+
+      save() {
+        try {
+          localStorage.setItem('gravity_pivot_cores_v5', this.totalCores.toString());
+          localStorage.setItem('gravity_pivot_shieldLvl_v5', this.shieldLvl.toString());
+          localStorage.setItem('gravity_pivot_magnetLvl_v5', this.magnetLvl.toString());
+          localStorage.setItem('gravity_pivot_tetherLvl_v5', this.tetherLvl.toString());
+        } catch (e) {
+          // Silent fallback for cross-origin or sandboxed iframe storage access blocks
+        }
+      }
+
+      load() {
+        try {
+          const rawCores = localStorage.getItem('gravity_pivot_cores_v5');
+          const rawShield = localStorage.getItem('gravity_pivot_shieldLvl_v5');
+          const rawMagnet = localStorage.getItem('gravity_pivot_magnetLvl_v5');
+          const rawTether = localStorage.getItem('gravity_pivot_tetherLvl_v5');
+
+          const parsedCores = rawCores ? parseInt(rawCores, 10) : 0;
+          const parsedShield = rawShield ? parseInt(rawShield, 10) : 1;
+          const parsedMagnet = rawMagnet ? parseInt(rawMagnet, 10) : 1;
+          const parsedTether = rawTether ? parseInt(rawTether, 10) : 1;
+
+          this.totalCores = Number.isFinite(parsedCores) && parsedCores >= 0 ? parsedCores : 0;
+          this.shieldLvl = Number.isFinite(parsedShield) && parsedShield > 0 ? parsedShield : 1;
+          this.magnetLvl = Number.isFinite(parsedMagnet) && parsedMagnet > 0 ? parsedMagnet : 1;
+          this.tetherLvl = Number.isFinite(parsedTether) && parsedTether > 0 ? parsedTether : 1;
+        } catch (e) {
+          // Retain defaults on security restriction exceptions
+        }
+      }
+    }
+
+    const saveState = new GameSaveState();
+
+    // --- PROCEDURAL WEBAUDIO SYNTHESIZER ---
+    class SynthManager {
+      constructor() {
+        this.ctx = null;
+        this.isMuted = true;
+        this.masterVolume = 0.12;
+
+        this.droneOsc = null;
+        this.droneGain = null;
+        this.lowpass = null;
+        this.lfo = null;
+        this.lfoGain = null;
+      }
+
+      init() {
+        if (this.ctx) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioCtx();
+
+        this.droneOsc = this.ctx.createOscillator();
+        this.droneGain = this.ctx.createGain();
+        this.lowpass = this.ctx.createBiquadFilter();
+        this.lfo = this.ctx.createOscillator();
+        this.lfoGain = this.ctx.createGain();
+
+        this.droneOsc.type = 'sawtooth';
+        this.droneOsc.frequency.setValueAtTime(110, this.ctx.currentTime);
+
+        this.lowpass.type = 'lowpass';
+        this.lowpass.frequency.setValueAtTime(350, this.ctx.currentTime);
+        this.lowpass.Q.setValueAtTime(5, this.ctx.currentTime);
+
+        this.lfo.frequency.setValueAtTime(4, this.ctx.currentTime);
+        this.lfoGain.gain.setValueAtTime(20, this.ctx.currentTime);
+
+        this.lfo.connect(this.lfoGain);
+        this.lfoGain.connect(this.droneOsc.frequency);
+        this.droneOsc.connect(this.lowpass);
+        this.lowpass.connect(this.droneGain);
+        this.droneGain.connect(this.ctx.destination);
+
+        this.droneGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+        this.droneOsc.start();
+        this.lfo.start();
+      }
+
+      setMute(state) {
+        this.isMuted = state;
+        if (!this.ctx) this.init();
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+        const targetVol = this.isMuted ? 0 : this.masterVolume;
+        this.droneGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.15);
+      }
+
+      updateParams(speedRatio, combo, sector) {
+        if (this.isMuted || !this.ctx) return;
+
+        const baseOctaveFreq = 82.41 + (sector * 12.0) + (speedRatio * 35.0);
+        this.droneOsc.frequency.setTargetAtTime(baseOctaveFreq, this.ctx.currentTime, 0.3);
+
+        const filterCutoff = 250 + (combo * 150) + (speedRatio * 400);
+        this.lowpass.frequency.setTargetAtTime(filterCutoff, this.ctx.currentTime, 0.1);
+        this.lfo.frequency.setTargetAtTime(3 + combo * 1.5, this.ctx.currentTime, 0.25);
+
+        // Safely update DOM feedback
+        const fEl = document.getElementById('synth-freq');
+        const mEl = document.getElementById('synth-mod');
+        const tEl = document.getElementById('synth-tempo');
+        if (fEl && mEl && tEl) {
+          fEl.textContent = `${Math.round(baseOctaveFreq)} Hz`;
+          mEl.textContent = `${filterCutoff.toFixed(0)} Hz`;
+          tEl.textContent = `${(3 + combo * 1.5).toFixed(1)} Hz`;
+        }
+      }
+
+      playPing() {
+        if (this.isMuted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.35);
+      }
+
+      playReleaseWhoosh() {
+        if (this.isMuted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.25);
+      }
+
+      playCoreCollected() {
+        if (this.isMuted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.setValueAtTime(1320, now + 0.08);
+
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.25);
+      }
+
+      playShieldBounce() {
+        if (this.isMuted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.linearRampToValueAtTime(50, now + 0.15);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.4);
+      }
+
+      playSectorUp() {
+        if (this.isMuted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        osc1.frequency.setValueAtTime(261.63, now);
+        osc2.frequency.setValueAtTime(329.63, now + 0.1);
+        
+        osc1.frequency.exponentialRampToValueAtTime(523.25, now + 0.3);
+        osc2.frequency.exponentialRampToValueAtTime(659.25, now + 0.4);
+
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        osc1.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc1.start();
+        osc2.start();
+        osc1.stop(now + 0.55);
+        osc2.stop(now + 0.55);
+      }
+
+      playExplosion() {
+        if (this.isMuted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const size = this.ctx.sampleRate * 0.5;
+        const buffer = this.ctx.createBuffer(1, size, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < size; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(250, now);
+        filter.frequency.linearRampToValueAtTime(30, now + 0.4);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        source.start();
+        source.stop(now + 0.5);
+      }
+
+      releaseAll() {
+        if (this.ctx) {
+          this.ctx.close();
+          this.ctx = null;
+        }
+      }
+    }
+
+    const audio = new SynthManager();
+
+    // --- ZERO ALLOCATION SWAP-AND-POP PARTICLE POOL ---
+    class ParticleEngine {
+      constructor() {
+        this.maxParticles = 150;
+        this.pool = new Array(this.maxParticles);
+        this.activeCount = 0;
+        
+        for (let i = 0; i < this.maxParticles; i++) {
+          this.pool[i] = { x: 0, y: 0, vx: 0, vy: 0, radius: 0, color: '', alpha: 0, decay: 0 };
+        }
+      }
+
+      spawn(x, y, color, speed = 4, count = 10) {
+        for (let i = 0; i < count; i++) {
+          if (this.activeCount >= this.maxParticles) return; // Pool limit safety
+          
+          const angle = Math.random() * Math.PI * 2;
+          const s = 1 + Math.random() * speed;
+          
+          const p = this.pool[this.activeCount];
+          p.x = x;
+          p.y = y;
+          p.vx = Math.cos(angle) * s;
+          p.vy = Math.sin(angle) * s;
+          p.radius = 1 + Math.random() * 1.5;
+          p.color = color;
+          p.alpha = 1.0;
+          p.decay = 0.02 + Math.random() * 0.03;
+          
+          this.activeCount++;
+        }
+      }
+
+      update() {
+        for (let i = this.activeCount - 1; i >= 0; i--) {
+          const p = this.pool[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.alpha -= p.decay;
+          
+          if (p.alpha <= 0) {
+            // Swap-and-Pop garbage-free removal
+            const temp = this.pool[i];
+            this.pool[i] = this.pool[this.activeCount - 1];
+            this.pool[this.activeCount - 1] = temp;
+            this.activeCount--;
+          }
+        }
+      }
+
+      draw(ctx, cameraOffsetX) {
+        ctx.save();
+        ctx.translate(cameraOffsetX, 0);
+        for (let i = 0; i < this.activeCount; i++) {
+          const p = this.pool[i];
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.alpha;
+          ctx.fill();
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+      }
+    }
+
+    const particles = new ParticleEngine();
+
+    // --- SEAMLESS SEGMENT GENERATION WITH SLIDING MEMORY WINDOW ---
+    function appendSegmentData(map, startX, count, config, guaranteeGaps) {
+      let currentX = startX;
+      const midY = 200;
+
+      for (let i = 0; i < count; i++) {
+        currentX += 250 + Math.random() * 100;
+        const nodeY = midY + (Math.random() * 120 - 60);
+        map.nodes.push({
+          id: `node_${map.nodes.length}_${Math.random().toString(36).substr(2, 5)}`,
+          x: currentX,
+          y: nodeY,
+          radius: 18 + Math.random() * 6
+        });
+
+        const coreCount = 2 + Math.floor(Math.random() * 3);
+        for (let c = 0; c < coreCount; c++) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = 60 + Math.random() * 60;
+          map.cores.push({
+            id: `core_${map.cores.length}_${c}`,
+            x: currentX + Math.cos(angle) * dist,
+            y: nodeY + Math.sin(angle) * dist,
+            radius: 3.5,
+            collected: false
+          });
+        }
+      }
+
+      let sampleX = startX;
+      const stepResolution = 20;
+
+      while (sampleX < currentX + 800) {
+        // Find nearest nodes using localized lookups instead of scanning whole map
+        const activeNodes = map.nodes.slice(-10); // Check only last placed chunks
+        const closestNode = activeNodes.reduce((prev, curr) => 
+          Math.abs(curr.x - sampleX) < Math.abs(prev.x - sampleX) ? curr : prev
+        );
+
+        let safetyEnvelope = config.maxTetherRadius;
+        if (guaranteeGaps) {
+          safetyEnvelope = config.maxTetherRadius + config.hazardProximityBuffer + 30;
+        } else {
+          safetyEnvelope = 110;
+        }
+
+        const waveUpper = Math.sin(sampleX * 0.015) * 20;
+        const waveLower = Math.cos(sampleX * 0.015) * 20;
+
+        map.upperWallSpline.push({
+          x: sampleX,
+          y: Math.max(10, closestNode.y - safetyEnvelope + waveUpper)
+        });
+        map.lowerWallSpline.push({
+          x: sampleX,
+          y: Math.min(390, closestNode.y + safetyEnvelope + waveLower)
+        });
+
+        sampleX += stepResolution;
+      }
+    }
+
+    // --- REFACTORED GRAVITY PIVOT ENGINE CLASS ---
+    const EPSILON = 1e-5;
+
+    class GravityPivotEngine {
+      constructor() {
+        this.canvas = document.getElementById('game-canvas');
+        this.ctx = this.canvas.getContext('2d');
+
+        this.spark = {
+          x: 100, y: 200, vx: 0, vy: 0,
+          flightState: 'LINEAR',
+          orbitalNodeId: '', orbitalRadius: 0, orbitalSigma: 1, orbitalTheta: 0, angularSpeed: 0,
+          combo: 1, score: 0, collectedInRun: 0, activeNearMisses: new Set(),
+          shield: 1, maxShield: 1, shieldInvulnFrames: 0
+        };
+
+        this.historyTrail = [];
+        this.mapData = { nodes: [], cores: [], upperWallSpline: [], lowerWallSpline: [] };
+        this.inputPressed = false;
+        
+        // Upgrade modifiers
+        this.activeMaxTether = 180;
+        this.activeMagnetRange = 40;
+
+        this.config = {
+          baseSpeed: 6.0,
+          maxTetherRadius: 180,
+          subSteps: 4,
+          hazardProximityBuffer: 30
+        };
+
+        this.sectorIndex = 1;
+        this.sectorCooldown = 0; // Cooldown timer prevents duplicate sector leaps
+        this.runDistance = 0;
+        
+        this.activeTab = 'COCKPIT';
+        this.isGamePaused = false;
+        this.isFlightActive = false;
+
+        // Delta time accumulator parameters
+        this.lastTime = performance.now();
+        this.accumulator = 0;
+        this.physicsTimeStep = 1 / 60;
+
+        this.setupResizing();
+        this.syncUpgrades();
+        this.initializeLevel();
+        this.setupEventHandlers();
+        this.setupNavigation();
+        this.setupKeyboardControls();
+        this.setupPageLifecycle();
+      }
+
+      setupResizing() {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.getBoundingClientRect();
+        
+        const parentWidth = this.canvas.parentElement ? this.canvas.parentElement.clientWidth : rect.width;
+        const parentHeight = this.activeTab === 'COCKPIT' ? 320 : 260;
+        
+        this.canvas.width = parentWidth * dpr;
+        this.canvas.height = parentHeight * dpr;
+        
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Cross-browser transform reset
+        this.ctx.scale(dpr, dpr);
+      }
+
+      log(msg, style = 'info') {
+        const container = document.getElementById('metric-log');
+        if (!container) return;
+
+        const div = document.createElement('div');
+        const styles = { info: 'color: #22d3ee;', warn: 'color: #fbbf24;', alert: 'color: #f43f5e;', success: 'color: #10b981;' };
+        div.className = 'mono';
+        div.style.cssText = styles[style] || 'color: #94a3b8;';
+        div.style.fontSize = '9px';
+        div.style.lineHeight = '1.5';
+        
+        const timestamp = new Date().toLocaleTimeString().split(' ')[0];
+        div.textContent = `> [${timestamp}] ${msg}`;
+        
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        while (container.children.length > 25) {
+          container.removeChild(container.firstChild);
+        }
+      }
+
+      syncUpgrades() {
+        const maxLevel = 5;
+
+        this.spark.maxShield = Math.min(saveState.shieldLvl, maxLevel);
+        this.activeMagnetRange = 40 + (Math.min(saveState.magnetLvl, maxLevel) - 1) * 35;
+        this.activeMaxTether = 180 + (Math.min(saveState.tetherLvl, maxLevel) - 1) * 35;
+        this.config.maxTetherRadius = this.activeMaxTether;
+
+        const sCount = document.getElementById('shop-cores-count');
+        const mCores = document.getElementById('mini-cores');
+        const tCores = document.getElementById('telemetry-cores');
+        const tReach = document.getElementById('telemetry-reach');
+
+        if (sCount) sCount.textContent = saveState.totalCores.toString();
+        if (mCores) mCores.textContent = saveState.totalCores.toString();
+        if (tCores) tCores.textContent = saveState.totalCores.toString();
+        if (tReach) tReach.textContent = `${this.activeMaxTether}px`;
+        
+        const uShield = document.getElementById('upg-shield-level');
+        const uMagnet = document.getElementById('upg-magnet-level');
+        const uTether = document.getElementById('upg-tether-level');
+
+        if (uShield) uShield.textContent = `Lvl ${saveState.shieldLvl}`;
+        if (uMagnet) uMagnet.textContent = `Lvl ${saveState.magnetLvl}`;
+        if (uTether) uTether.textContent = `Lvl ${saveState.tetherLvl}`;
+
+        const syncButton = (btnId, labelId, costId, curLvl, baseCost) => {
+          const btn = document.getElementById(btnId);
+          const label = document.getElementById(labelId);
+          const cost = document.getElementById(costId);
+          if (!btn) return;
+
+          if (curLvl >= maxLevel) {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+            if (label) label.textContent = "MAX LEVEL";
+            if (cost) cost.textContent = "CAPPED";
+          } else {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            if (cost) cost.textContent = `${curLvl * baseCost} Cores`;
+          }
+        };
+
+        syncButton('buy-shield-btn', 'buy-shield-label', 'buy-shield-cost', saveState.shieldLvl, 10);
+        syncButton('buy-magnet-btn', 'buy-magnet-label', 'buy-magnet-cost', saveState.magnetLvl, 15);
+        syncButton('buy-tether-btn', 'buy-tether-label', 'buy-tether-cost', saveState.tetherLvl, 20);
+
+        this.renderShieldDisplay();
+      }
+
+      renderShieldDisplay() {
+        const container = document.getElementById('shield-heart-container');
+        if (container) {
+          container.innerHTML = '';
+          for (let i = 0; i < this.spark.maxShield; i++) {
+            const filled = i < this.spark.shield;
+            const heart = document.createElement('span');
+            heart.className = `mono ${filled ? 'text-emerald-400' : 'text-slate-800'}`;
+            heart.style.fontSize = '12px';
+            heart.textContent = filled ? '◆' : '◇';
+            container.appendChild(heart);
+          }
+        }
+        const mShield = document.getElementById('mini-shield');
+        if (mShield) mShield.textContent = `${this.spark.shield}/${this.spark.maxShield}`;
+      }
+
+      initializeLevel() {
+        this.spark.x = 100;
+        this.spark.y = 200;
+        this.spark.vx = this.config.baseSpeed;
+        this.spark.vy = 0;
+        this.spark.flightState = 'LINEAR';
+        this.spark.combo = 1;
+        this.spark.score = 0;
+        this.spark.collectedInRun = 0;
+        this.spark.shield = this.spark.maxShield;
+        this.spark.activeNearMisses.clear();
+        this.historyTrail = [];
+        this.sectorIndex = 1;
+        this.sectorCooldown = 0;
+        this.runDistance = 0;
+        this.isFlightActive = false;
+
+        this.mapData.nodes = [];
+        this.mapData.cores = [];
+        this.mapData.upperWallSpline = [];
+        this.mapData.lowerWallSpline = [];
+
+        const guaranteeGaps = document.getElementById('toggle-safety').checked;
+        appendSegmentData(this.mapData, 0, 30, this.config, guaranteeGaps);
+        
+        this.renderShieldDisplay();
+        
+        const bText = document.getElementById('play-btn-text');
+        if (bText) bText.textContent = 'Reset Run';
+        
+        const overlay = document.getElementById('launch-prompt-overlay');
+        if (overlay) {
+          overlay.style.opacity = '1';
+          overlay.style.pointerEvents = 'auto';
+        }
+
+        this.log('Fusion engines disengaged. Cockpit ready.', 'success');
+      }
+
+      setupNavigation() {
+        const tabs = {
+          COCKPIT: { btn: 'tab-cockpit', view: 'view-cockpit' },
+          TERMINAL: { btn: 'tab-terminal', view: 'view-terminal' },
+          TELEMETRY: { btn: 'tab-telemetry', view: 'view-telemetry' },
+          CALIBRATION: { btn: 'tab-calibration', view: 'view-calibration' }
+        };
+
+        Object.keys(tabs).forEach(tabKey => {
+          const target = tabs[tabKey];
+          const btn = document.getElementById(target.btn);
+          if (!btn) return;
+          
+          btn.addEventListener('click', () => {
+            if (this.activeTab === tabKey) return;
+
+            Object.keys(tabs).forEach(k => {
+              const b = document.getElementById(tabs[k].btn);
+              if (b) {
+                b.className = "interactive-btn";
+                b.classList.remove('tab-active');
+              }
+            });
+
+            btn.classList.add('tab-active');
+
+            const currentView = document.getElementById(tabs[this.activeTab].view);
+            const nextView = document.getElementById(target.view);
+
+            if (currentView) {
+              currentView.classList.remove('view-active');
+              currentView.classList.add('view-hidden');
+            }
+            if (nextView) {
+              nextView.classList.remove('view-hidden');
+              nextView.classList.add('view-active');
+            }
+
+            this.activeTab = tabKey;
+            this.setupResizing();
+
+            if (this.activeTab !== 'COCKPIT' && this.spark.shield > 0) {
+              this.setPauseState(true);
+            } else if (this.activeTab === 'COCKPIT') {
+              this.setPauseState(false);
+            }
+
+            this.log(`Switched HUD interface view to ${tabKey}.`, 'info');
+          });
+        });
+      }
+
+      setPauseState(state) {
+        this.isGamePaused = state;
+        const overlay = document.getElementById('pause-overlay');
+        if (overlay) {
+          if (state) {
+            overlay.style.opacity = '1';
+            overlay.style.pointerEvents = 'auto';
+          } else {
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
+          }
+        }
+      }
+
+      setupPageLifecycle() {
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            if (this.isFlightActive && this.spark.shield > 0) {
+              this.setPauseState(true);
+            }
+            if (audio.ctx && audio.ctx.state === 'running') {
+              audio.ctx.suspend();
+            }
+          } else {
+            if (audio.ctx && !audio.isMuted) {
+              audio.ctx.resume();
+            }
+          }
+        });
+      }
+
+      // Safe culling sliding window to eliminate garbage collection delays (GC Free)
+      cullWorldArrays() {
+        const thresholdX = this.spark.x - 500;
+        
+        // Cull old nodes
+        let nodesCulled = 0;
+        for (let i = this.mapData.nodes.length - 1; i >= 0; i--) {
+          if (this.mapData.nodes[i].x < thresholdX) {
+            this.mapData.nodes.splice(i, 1);
+            nodesCulled++;
+          }
+        }
+
+        // Cull old cores
+        let coresCulled = 0;
+        for (let i = this.mapData.cores.length - 1; i >= 0; i--) {
+          if (this.mapData.cores[i].x < thresholdX) {
+            this.mapData.cores.splice(i, 1);
+            coresCulled++;
+          }
+        }
+
+        // Cull spline boundaries safely
+        let splinesCulled = 0;
+        for (let i = this.mapData.upperWallSpline.length - 1; i >= 0; i--) {
+          if (this.mapData.upperWallSpline[i].x < thresholdX) {
+            this.mapData.upperWallSpline.splice(i, 1);
+            this.mapData.lowerWallSpline.splice(i, 1);
+            splinesCulled++;
+          }
+        }
+      }
+
+      getRelativeWorldCoords(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        
+        // Exact viewport coordinate conversion
+        const cssX = clientX - rect.left;
+        const cssY = clientY - rect.top;
+        
+        const localX = (cssX / rect.width) * (this.canvas.width / (window.devicePixelRatio || 1));
+        const localY = (cssY / rect.height) * (this.canvas.height / (window.devicePixelRatio || 1));
+        
+        const cameraOffsetX = Math.round(-this.spark.x + 150);
+        return {
+          worldX: localX - cameraOffsetX,
+          worldY: localY
+        };
+      }
+
+      setupKeyboardControls() {
+        window.addEventListener('keydown', (e) => {
+          if (e.repeat) return;
+          if (this.activeTab !== 'COCKPIT' || !this.isFlightActive) return;
+
+          if (e.code === 'Space') {
+            e.preventDefault();
+            this.acquireTether();
+          }
+          if (e.code === 'KeyR') {
+            this.initializeLevel();
+          }
+        });
+
+        window.addEventListener('keyup', (e) => {
+          if (e.code === 'Space') {
+            this.releaseTether();
+          }
+        });
+      }
+
+      setupEventHandlers() {
+        const handleTetherDown = (e) => {
+          e.preventDefault();
+          if (this.activeTab !== 'COCKPIT') return;
+          if (!this.isFlightActive) return;
+
+          if (this.spark.shield <= 0) {
+            this.initializeLevel();
+            return;
+          }
+          this.acquireTether(e);
+        };
+
+        const handleTetherUp = (e) => {
+          e.preventDefault();
+          this.releaseTether();
+        };
+
+        this.canvas.addEventListener('mousedown', handleTetherDown);
+        window.addEventListener('mouseup', handleTetherUp);
+        this.canvas.addEventListener('touchstart', handleTetherDown, { passive: false });
+        window.addEventListener('touchend', handleTetherUp, { passive: false });
+
+        // Launch click handlers
+        const initiateEngines = () => {
+          this.isFlightActive = true;
+          const overlay = document.getElementById('launch-prompt-overlay');
+          if (overlay) {
+            overlay.style.opacity = '0';
+            overlay.style.pointerEvents = 'none';
+          }
+          audio.init();
+        };
+
+        const bLaunch = document.getElementById('btn-splash-launch');
+        if (bLaunch) bLaunch.addEventListener('click', initiateEngines);
+        
+        const bPlay = document.getElementById('btn-play');
+        if (bPlay) {
+          bPlay.addEventListener('click', () => {
+            this.initializeLevel();
+          });
+        }
+
+        // Calibration Sliders
+        const sSpeed = document.getElementById('slide-speed');
+        if (sSpeed) {
+          sSpeed.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            this.config.baseSpeed = val;
+            const vSpeed = document.getElementById('val-speed');
+            if (vSpeed) vSpeed.textContent = val.toFixed(1);
+            if (this.spark.flightState === 'LINEAR') {
+              const angle = Math.atan2(this.spark.vy, this.spark.vx);
+              this.spark.vx = Math.cos(angle) * val;
+              this.spark.vy = Math.sin(angle) * val;
+            }
+          });
+        }
+
+        const sSubsteps = document.getElementById('slide-substeps');
+        if (sSubsteps) {
+          sSubsteps.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            this.config.subSteps = val;
+            const vSub = document.getElementById('val-substeps');
+            if (vSub) vSub.textContent = val.toString();
+          });
+        }
+
+        const sBuffer = document.getElementById('slide-buffer');
+        if (sBuffer) {
+          sBuffer.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            this.config.hazardProximityBuffer = val;
+            const vBuf = document.getElementById('val-buffer');
+            if (vBuf) vBuf.textContent = `${val}px`;
+          });
+        }
+      }
+
+      acquireTether(e) {
+        if (this.inputPressed) return;
+        this.inputPressed = true;
+
+        let worldX = this.spark.x + 100;
+        let worldY = this.spark.y;
+
+        if (e) {
+          const touch = e.touches ? e.touches[0] : e;
+          const coords = this.getRelativeWorldCoords(touch.clientX, touch.clientY);
+          worldX = coords.worldX;
+          worldY = coords.worldY;
+        }
+
+        let targetNode = null;
+        let minTetherDistance = Infinity;
+
+        // Try precision selection near click coordinates first
+        let closestNodeToTap = null;
+        let tapMinDistance = Infinity;
+        for (let i = 0; i < this.mapData.nodes.length; i++) {
+          const node = this.mapData.nodes[i];
+          const tapDist = Math.hypot(node.x - worldX, node.y - worldY);
+          if (tapDist < tapMinDistance && tapDist < 80) {
+            tapMinDistance = tapDist;
+            closestNodeToTap = node;
+          }
+        }
+
+        if (closestNodeToTap) {
+          const playerDist = Math.hypot(closestNodeToTap.x - this.spark.x, closestNodeToTap.y - this.spark.y);
+          if (playerDist <= this.config.maxTetherRadius) {
+            targetNode = closestNodeToTap;
+            minTetherDistance = playerDist;
+          }
+        }
+
+        // General proximity target resolver
+        if (!targetNode) {
+          for (let i = 0; i < this.mapData.nodes.length; i++) {
+            const node = this.mapData.nodes[i];
+            const d = Math.hypot(node.x - this.spark.x, node.y - this.spark.y);
+            if (d < minTetherDistance) {
+              minTetherDistance = d;
+              targetNode = node;
+            }
+          }
+        }
+
+        if (targetNode && minTetherDistance <= this.config.maxTetherRadius) {
+          const rx = this.spark.x - targetNode.x;
+          const ry = this.spark.y - targetNode.y;
+          let radius = Math.hypot(rx, ry);
+
+          if (radius < targetNode.radius) {
+            radius = targetNode.radius + EPSILON;
+          }
+
+          const cross = rx * this.spark.vy - ry * this.spark.vx;
+          let sigma = 1;
+          
+          if (document.getElementById('toggle-singularity').checked) {
+            sigma = Math.abs(cross) < EPSILON ? 1 : Math.sign(cross);
+          } else {
+            sigma = Math.sign(cross);
+          }
+          if (sigma === 0) sigma = 1;
+
+          this.spark.flightState = 'ORBITAL';
+          this.spark.orbitalNodeId = targetNode.id;
+          this.spark.orbitalRadius = radius;
+          this.spark.orbitalSigma = sigma;
+          this.spark.orbitalTheta = Math.atan2(ry, rx);
+
+          const speed = Math.hypot(this.spark.vx, this.spark.vy);
+          const rawAngularSpeed = speed / radius;
+          const maxAngularSpeed = 0.35;
+          this.spark.angularSpeed = sigma * Math.min(rawAngularSpeed, maxAngularSpeed);
+
+          audio.playPing();
+          this.log(`Tether secure on orbit node ${targetNode.id.split('_')[1]}.`, 'info');
+        } else {
+          this.log(`Node vector outside tether limits ($R_{\\max}$).`, 'warn');
+        }
+      }
+
+      releaseTether() {
+        this.inputPressed = false;
+        if (this.spark.flightState === 'ORBITAL') {
+          this.spark.flightState = 'LINEAR';
+          audio.playReleaseWhoosh();
+          this.log('Tether decoupled.', 'info');
+        }
+      }
+
+      triggerSectorLeap() {
+        const now = performance.now();
+        if (now - this.sectorCooldown < 2000) return; // 2s lock prevents duplicate leaps
+        this.sectorCooldown = now;
+
+        this.sectorIndex++;
+        this.spark.x += 1000;
+        
+        const guaranteeGaps = document.getElementById('toggle-safety').checked;
+        appendSegmentData(this.mapData, this.spark.x + 100, 30, this.config, guaranteeGaps);
+        
+        this.spark.shield = this.spark.maxShield;
+        this.renderShieldDisplay();
+
+        audio.playSectorUp();
+        const popup = document.getElementById('sector-milestone-popup');
+        if (popup) {
+          const sTitle = document.getElementById('sector-milestone-title');
+          if (sTitle) sTitle.textContent = `SECTOR ${this.sectorIndex}`;
+          popup.style.opacity = '1';
+          setTimeout(() => { popup.style.opacity = '0'; }, 2200);
+        }
+
+        this.spark.score += 1000 * this.sectorIndex;
+        this.log(`Hyper-jump complete! Sector ${this.sectorIndex} reached. Shields restored.`, 'success');
+      }
+
+      getWallBoundaries(x) {
+        const stepResolution = 20;
+        const exactIndex = x / stepResolution;
+        const indexA = Math.floor(exactIndex);
+        const indexB = indexA + 1;
+        
+        const maxLen = this.mapData.upperWallSpline.length;
+        
+        if (indexA < 0) {
+          return { 
+            upperY: this.mapData.upperWallSpline[0] ? this.mapData.upperWallSpline[0].y : 50, 
+            lowerY: this.mapData.lowerWallSpline[0] ? this.mapData.lowerWallSpline[0].y : 350 
+          };
+        }
+        if (indexB >= maxLen) {
+          const lastIdx = maxLen - 1;
+          return { 
+            upperY: this.mapData.upperWallSpline[lastIdx] ? this.mapData.upperWallSpline[lastIdx].y : 50, 
+            lowerY: this.mapData.lowerWallSpline[lastIdx] ? this.mapData.lowerWallSpline[lastIdx].y : 350 
+          };
+        }
+        
+        const t = exactIndex - indexA;
+        const ptA_u = this.mapData.upperWallSpline[indexA];
+        const ptB_u = this.mapData.upperWallSpline[indexB];
+        const ptA_l = this.mapData.lowerWallSpline[indexA];
+        const ptB_l = this.mapData.lowerWallSpline[indexB];
+        
+        const upperY = ptA_u.y * (1 - t) + ptB_u.y * t;
+        const lowerY = ptA_l.y * (1 - t) + ptB_l.y * t;
+        
+        return { upperY, lowerY };
+      }
+
+      runCollisionChecks(x, y) {
+        const { upperY, lowerY } = this.getWallBoundaries(x);
+        return (y <= upperY || y >= lowerY);
+      }
+
+      updateCoresAndMagnetPull() {
+        const activeViewLimit = 400;
+        for (let i = 0; i < this.mapData.cores.length; i++) {
+          const core = this.mapData.cores[i];
+          if (core.collected) continue;
+          if (Math.abs(core.x - this.spark.x) > activeViewLimit) continue;
+
+          const dist = Math.hypot(core.x - this.spark.x, core.y - this.spark.y);
+          
+          if (dist <= this.activeMagnetRange) {
+            const pullStrength = 0.15 * (1 - (dist / this.activeMagnetRange));
+            core.x += (this.spark.x - core.x) * pullStrength;
+            core.y += (this.spark.y - core.y) * pullStrength;
+          }
+
+          if (dist < 14) {
+            core.collected = true;
+            this.spark.collectedInRun++;
+            saveState.totalCores++;
+            saveState.save();
+            
+            this.spark.score += 150 * this.spark.combo;
+            
+            const shopCores = document.getElementById('shop-cores-count');
+            const mCores = document.getElementById('mini-cores');
+            const rCores = document.getElementById('hud-run-cores');
+
+            if (shopCores) shopCores.textContent = saveState.totalCores.toString();
+            if (mCores) mCores.textContent = saveState.totalCores.toString();
+            if (rCores) rCores.textContent = this.spark.collectedInRun.toString();
+            
+            particles.spawn(core.x, core.y, '#f59e0b', 3, 6);
+            audio.playCoreCollected();
+          }
+        }
+      }
+
+      handleNearMisses(x, y) {
+        const stepResolution = 20;
+        const index = Math.floor(x / stepResolution);
+        if (index < 0 || index >= this.mapData.upperWallSpline.length) return;
+
+        const { upperY, lowerY } = this.getWallBoundaries(x);
+
+        const distToUpper = y - upperY;
+        const distToLower = lowerY - y;
+        const dangerLimit = this.config.hazardProximityBuffer;
+
+        const nearWall = (distToUpper < dangerLimit || distToLower < dangerLimit);
+
+        const dWarning = document.getElementById('danger-warning');
+        if (nearWall) {
+          if (dWarning) dWarning.style.opacity = '1';
+          if (!this.spark.activeNearMisses.has(index)) {
+            this.spark.activeNearMisses.add(index);
+          }
+        } else {
+          if (dWarning) dWarning.style.opacity = '0';
+          if (this.spark.activeNearMisses.has(index)) {
+            this.spark.activeNearMisses.delete(index);
+            this.spark.combo = Math.min(this.spark.combo + 1, 5);
+            this.spark.score += 200 * this.spark.combo;
+            
+            particles.spawn(x, y, this.spark.combo === 5 ? '#ec4899' : '#06b6d4', 4, 12);
+            this.log(`Dynamic hazard proximity bonus! Combo multiplied: x${this.spark.combo}`, 'info');
+          }
+        }
+      }
+
+      physicsTick(dt) {
+        if (this.spark.shieldInvulnFrames > 0) {
+          this.spark.shieldInvulnFrames--;
+        }
+
+        const substepping = document.getElementById('toggle-substep').checked;
+        const subSteps = substepping ? this.config.subSteps : 1;
+        const subDt = dt / subSteps;
+
+        for (let i = 0; i < subSteps; i++) {
+          if (this.spark.flightState === 'LINEAR') {
+            this.spark.x += this.spark.vx * subDt * 60;
+            this.spark.y += this.spark.vy * subDt * 60;
+          } else {
+            this.spark.orbitalTheta += this.spark.angularSpeed * subDt * 60;
+            const targetNode = this.mapData.nodes.find(n => n.id === this.spark.orbitalNodeId);
+            if (targetNode) {
+              this.spark.x = targetNode.x + this.spark.orbitalRadius * Math.cos(this.spark.orbitalTheta);
+              this.spark.y = targetNode.y + this.spark.orbitalRadius * Math.sin(this.spark.orbitalTheta);
+
+              const speed = Math.abs(this.spark.angularSpeed * this.spark.orbitalRadius);
+              this.spark.vx = -speed * this.spark.orbitalSigma * Math.sin(this.spark.orbitalTheta);
+              this.spark.vy = speed * this.spark.orbitalSigma * Math.cos(this.spark.orbitalTheta);
+            }
+          }
+
+          if (this.runCollisionChecks(this.spark.x, this.spark.y)) {
+            if (this.spark.shieldInvulnFrames <= 0) {
+              this.spark.shield--;
+              this.spark.combo = 1;
+              this.spark.shieldInvulnFrames = 60;
+              this.renderShieldDisplay();
+
+              if (this.spark.shield <= 0) {
+                particles.spawn(this.spark.x, this.spark.y, '#f43f5e', 8, 30);
+                audio.playExplosion();
+                this.log('Shield array collapsed! Space vessel destroyed.', 'alert');
+                break;
+              } else {
+                particles.spawn(this.spark.x, this.spark.y, '#10b981', 5, 12);
+                audio.playShieldBounce();
+                this.log(`Hull impact! Shield buffers absorbed damage. Remaining: ${this.spark.shield}`, 'warn');
+                
+                // Align player safely back into the CENTER of the calculated safe spline interval
+                const { upperY, lowerY } = this.getWallBoundaries(this.spark.x);
+                this.spark.y = upperY + (lowerY - upperY) / 2;
+                this.spark.flightState = 'LINEAR';
+              }
+            }
+          }
+
+          this.updateCoresAndMagnetPull();
+          this.handleNearMisses(this.spark.x, this.spark.y);
+        }
+
+        // Infinite map segment appender checks
+        const totalSplineSize = this.mapData.upperWallSpline.length;
+        if (totalSplineSize > 0) {
+          const lastWallElement = this.mapData.upperWallSpline[totalSplineSize - 1];
+          if (this.spark.x + 3000 > lastWallElement.x) {
+            const guaranteeGaps = document.getElementById('toggle-safety').checked;
+            appendSegmentData(this.mapData, lastWallElement.x, 15, this.config, guaranteeGaps);
+            this.cullWorldArrays(); // Garbage cull elements behind the camera threshold
+          }
+        }
+
+        this.runDistance = Math.floor(this.spark.x / 10);
+        const sectorDistanceProgress = (this.spark.x % 10000) / 10000;
+        
+        const bEl = document.getElementById('sector-hud-bar');
+        const lEl = document.getElementById('sector-hud-label');
+        if (bEl && lEl) {
+          bEl.style.width = `${sectorDistanceProgress * 100}%`;
+          lEl.textContent = `SEC ${this.sectorIndex}`;
+        }
+
+        if (this.spark.x % 10000 < 200 && this.spark.x > 1000 && sectorDistanceProgress < 0.1) {
+          this.triggerSectorLeap();
+        }
+
+        this.historyTrail.push({ x: this.spark.x, y: this.spark.y });
+        if (this.historyTrail.length > 25) this.historyTrail.shift();
+
+        // Update indicators
+        const sEl = document.getElementById('telemetry-sigma');
+        const vEl = document.getElementById('telemetry-velocity');
+        if (sEl) sEl.textContent = this.spark.flightState === 'ORBITAL' ? `σ = ${this.spark.orbitalSigma}` : 'N/A';
+        
+        const spd = Math.hypot(this.spark.vx, this.spark.vy);
+        if (vEl) vEl.textContent = `${(spd * 60).toFixed(0)} px/s`;
+        
+        const hScore = document.getElementById('hud-score');
+        const hCombo = document.getElementById('hud-combo');
+        if (hScore) hScore.textContent = String(Math.floor(this.spark.score)).padStart(5, '0');
+        if (hCombo) hCombo.textContent = `x${this.spark.combo}`;
+
+        audio.updateParams(spd / 12, this.spark.combo, this.sectorIndex);
+        particles.update();
+      }
+
+      run() {
+        const gameLoop = (timestamp) => {
+          // Delta calculation clamped at 0.1s to avoid physics explosions during long suspensions
+          const elapsed = Math.min((timestamp - this.lastTime) / 1000, 0.1);
+          this.lastTime = timestamp;
+
+          if (!this.isGamePaused && this.spark.shield > 0 && this.isFlightActive) {
+            this.accumulator += elapsed;
+            while (this.accumulator >= this.physicsTimeStep) {
+              this.physicsTick(this.physicsTimeStep);
+              this.accumulator -= this.physicsTimeStep;
+            }
+          } else {
+            // Spin particle animations on menu states
+            particles.update();
+          }
+
+          this.draw();
+          requestAnimationFrame(gameLoop);
+        };
+        requestAnimationFrame(gameLoop);
+      }
+
+      draw() {
+        // High DPI layout alignments
+        const scale = window.devicePixelRatio || 1;
+        const logicalWidth = this.canvas.width / scale;
+        const logicalHeight = this.canvas.height / scale;
+        
+        this.ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+
+        // HiDPI Pixel alignment
+        const cameraOffsetX = Math.round(-this.spark.x + 150);
+
+        this.ctx.save();
+        this.ctx.translate(cameraOffsetX, 0);
+
+        // Draw grids snaped to integers
+        this.ctx.strokeStyle = 'rgba(30, 41, 59, 0.2)';
+        this.ctx.lineWidth = 1;
+        const gridGap = 40;
+        const startGridX = Math.floor((this.spark.x - 200) / gridGap) * gridGap;
+        for (let gx = startGridX; gx < startGridX + 1000; gx += gridGap) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(Math.round(gx), 0);
+          this.ctx.lineTo(Math.round(gx), 400);
+          this.ctx.stroke();
+        }
+
+        const sectorHue = (this.sectorIndex * 40) % 360;
+        
+        // Draw Cave structures
+        if (this.mapData.upperWallSpline.length > 0) {
+          this.ctx.fillStyle = `hsl(${sectorHue}, 25%, 8%)`;
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.mapData.upperWallSpline[0].x, 0);
+          for (let i = 0; i < this.mapData.upperWallSpline.length; i++) {
+            this.ctx.lineTo(this.mapData.upperWallSpline[i].x, this.mapData.upperWallSpline[i].y);
+          }
+          this.ctx.lineTo(this.mapData.upperWallSpline[this.mapData.upperWallSpline.length - 1].x, 0);
+          this.ctx.fill();
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.mapData.lowerWallSpline[0].x, 400);
+          for (let i = 0; i < this.mapData.lowerWallSpline.length; i++) {
+            this.ctx.lineTo(this.mapData.lowerWallSpline[i].x, this.mapData.lowerWallSpline[i].y);
+          }
+          this.ctx.lineTo(this.mapData.lowerWallSpline[this.mapData.lowerWallSpline.length - 1].x, 400);
+          this.ctx.fill();
+
+          // Walls neon edge
+          this.ctx.strokeStyle = `hsl(${sectorHue}, 60%, 25%)`;
+          this.ctx.lineWidth = 2.5;
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.mapData.upperWallSpline[0].x, this.mapData.upperWallSpline[0].y);
+          for (let i = 0; i < this.mapData.upperWallSpline.length; i++) {
+            this.ctx.lineTo(this.mapData.upperWallSpline[i].x, this.mapData.upperWallSpline[i].y);
+          }
+          this.ctx.stroke();
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.mapData.lowerWallSpline[0].x, this.mapData.lowerWallSpline[0].y);
+          for (let i = 0; i < this.mapData.lowerWallSpline.length; i++) {
+            this.ctx.lineTo(this.mapData.lowerWallSpline[i].x, this.mapData.lowerWallSpline[i].y);
+          }
+          this.ctx.stroke();
+        }
+
+        // Draw nodes
+        for (let i = 0; i < this.mapData.nodes.length; i++) {
+          const node = this.mapData.nodes[i];
+          const playerDist = Math.hypot(node.x - this.spark.x, node.y - this.spark.y);
+          const active = playerDist <= this.config.maxTetherRadius;
+
+          this.ctx.beginPath();
+          this.ctx.arc(node.x, node.y, this.config.maxTetherRadius, 0, Math.PI * 2);
+          this.ctx.strokeStyle = active ? 'rgba(34, 211, 238, 0.05)' : 'rgba(255, 255, 255, 0.01)';
+          this.ctx.stroke();
+
+          this.ctx.beginPath();
+          this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+          this.ctx.fillStyle = '#03050a';
+          this.ctx.strokeStyle = active ? '#22d3ee' : '#334155';
+          this.ctx.lineWidth = 2;
+          this.ctx.fill();
+          this.ctx.stroke();
+
+          this.ctx.beginPath();
+          this.ctx.arc(node.x, node.y, 4, 0, Math.PI * 2);
+          this.ctx.fillStyle = active ? '#22d3ee' : '#334155';
+          this.ctx.fill();
+        }
+
+        // Draw Cores
+        for (let i = 0; i < this.mapData.cores.length; i++) {
+          const core = this.mapData.cores[i];
+          if (core.collected) continue;
+
+          this.ctx.beginPath();
+          this.ctx.arc(core.x, core.y, core.radius + 3, 0, Math.PI * 2);
+          this.ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
+          this.ctx.fill();
+
+          this.ctx.beginPath();
+          this.ctx.arc(core.x, core.y, core.radius, 0, Math.PI * 2);
+          this.ctx.fillStyle = '#fbbf24';
+          this.ctx.fill();
+        }
+
+        // Draw tether anchor connection
+        if (this.spark.flightState === 'ORBITAL') {
+          const targetNode = this.mapData.nodes.find(n => n.id === this.spark.orbitalNodeId);
+          if (targetNode) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.spark.x, this.spark.y);
+            this.ctx.lineTo(targetNode.x, targetNode.y);
+            this.ctx.strokeStyle = '#22d3ee';
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([4, 4]);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+          }
+        }
+
+        // Draw history flight trail path
+        if (this.historyTrail.length > 1) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.historyTrail[0].x, this.historyTrail[0].y);
+          for (let i = 1; i < this.historyTrail.length; i++) {
+            this.ctx.lineTo(this.historyTrail[i].x, this.historyTrail[i].y);
+          }
+          this.ctx.strokeStyle = this.spark.combo === 5 ? '#ec4899' : '#22d3ee';
+          this.ctx.lineWidth = this.spark.combo === 5 ? 4 : 2;
+          this.ctx.stroke();
+        }
+
+        // Draw rotated arrow spacecraft
+        if (this.spark.shieldInvulnFrames % 4 < 2) {
+          const heading = Math.atan2(this.spark.vy, this.spark.vx);
+          this.ctx.save();
+          this.ctx.translate(this.spark.x, this.spark.y);
+          this.ctx.rotate(heading);
+          
+          this.ctx.beginPath();
+          this.ctx.moveTo(8, 0);
+          this.ctx.lineTo(-6, -5);
+          this.ctx.lineTo(-3, 0);
+          this.ctx.lineTo(-6, 5);
+          this.ctx.closePath();
+          
+          this.ctx.fillStyle = this.spark.combo === 5 ? '#f43f5e' : '#ffffff';
+          this.ctx.fill();
+
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, 11, 0, Math.PI * 2);
+          this.ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+          this.ctx.lineWidth = 1.5;
+          this.ctx.stroke();
+          
+          this.ctx.restore();
+        }
+
+        this.ctx.restore();
+
+        // Render Particle Pools
+        particles.draw(this.ctx, cameraOffsetX);
+
+        // Crash/Reset HUD screens
+        if (this.spark.shield <= 0) {
+          this.ctx.fillStyle = 'rgba(3, 4, 9, 0.85)';
+          this.ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+
+          this.ctx.fillStyle = '#f43f5e';
+          this.ctx.font = 'bold 28px "Space Grotesk"';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText('VESSEL CRASHED', logicalWidth / 2, logicalHeight / 2 - 10);
+
+          this.ctx.fillStyle = '#94a3b8';
+          this.ctx.font = '11px "JetBrains Mono"';
+          this.ctx.fillText('TAP COCKPIT SCREEN OR SPACE BAR TO RE-LAUNCH', logicalWidth / 2, logicalHeight / 2 + 25);
+          this.ctx.textAlign = 'left';
+        }
+      }
+    }
+
+    // --- BOOTSTRAP ENVIRONMENT INITIALIZATION ---
+    window.addEventListener('DOMContentLoaded', () => {
+      const engine = new GravityPivotEngine();
+      engine.run();
+
+      const unmuteBtn = document.getElementById('unmute-btn');
+      if (unmuteBtn) {
+        unmuteBtn.addEventListener('click', () => {
+          if (audio.isMuted) {
+            audio.setMute(false);
+            unmuteBtn.style.color = '#ffffff';
+            unmuteBtn.style.backgroundColor = '#ec4899';
+            unmuteBtn.style.borderColor = 'rgba(236, 72, 153, 0.3)';
+            unmuteBtn.classList.add('pink-glow');
+            unmuteBtn.querySelector('span').textContent = 'SYNTH ACTIVE';
+          } else {
+            audio.setMute(true);
+            unmuteBtn.style.color = '#94a3b8';
+            unmuteBtn.style.backgroundColor = '#0f172a';
+            unmuteBtn.style.borderColor = '#1e293b';
+            unmuteBtn.classList.remove('pink-glow');
+            unmuteBtn.querySelector('span').textContent = 'SYNTH MUTED';
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
