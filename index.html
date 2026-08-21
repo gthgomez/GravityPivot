@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gravity Pivot - Production-Ready TypeScript Edition</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="app-body">
+
+  <!-- Header Panel -->
+  <header class="hud-header">
+    <div class="header-logo-container">
+      <div class="header-logo-indicator" aria-hidden="true"></div>
+      <div>
+        <h1 class="header-title">Gravity Pivot</h1>
+        <p class="header-subtitle mono">REFRACTOR COCKPIT OPERATING DECK</p>
+      </div>
+    </div>
+    
+    <!-- Mini Status Indicators -->
+    <div class="header-controls">
+      <div class="mini-status-card mono">
+        <span class="status-label">SHIELD:</span>
+        <span id="mini-shield" class="status-value-shield">1/1</span>
+        <span class="status-separator">|</span>
+        <span class="status-label">CORES:</span>
+        <span id="mini-cores" class="status-value-cores">0</span>
+      </div>
+      
+      <button id="unmute-btn" class="interactive-btn synth-toggle-btn" aria-label="Toggle Sound Synthesizer">
+        <svg xmlns="http://www.w3.org/2000/svg" class="synth-toggle-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+        </svg>
+        <span class="mono synth-toggle-text">SYNTH LAYER</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Dock -->
+  <nav class="nav-dock">
+    <div class="nav-dock-container">
+      <button id="tab-cockpit" class="interactive-btn tab-button tab-active" aria-label="Navigate to Cockpit View">
+        <svg xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <span class="tab-label">COCKPIT</span>
+      </button>
+      <button id="tab-terminal" class="interactive-btn tab-button" aria-label="Navigate to Upgrades Terminal">
+        <svg xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+        </svg>
+        <span class="tab-label">UPGRADES</span>
+      </button>
+      <button id="tab-telemetry" class="interactive-btn tab-button" aria-label="Navigate to Diagnostics and Telemetry">
+        <svg xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <span class="tab-label">DIAGNOSTICS</span>
+      </button>
+      <button id="tab-calibration" class="interactive-btn tab-button" aria-label="Navigate to Calibration Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+        <span class="tab-label">CALIBRATE</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Interactive Sandbox Workspace Container -->
+  <main class="main-workspace">
+    
+    <!-- Pause State Backdrop -->
+    <div id="pause-overlay" class="overlay-backdrop pause-overlay">
+      <div class="pause-icon-container">
+        <svg xmlns="http://www.w3.org/2000/svg" class="pause-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p class="pause-title mono">Flight Dynamics Paused</p>
+      <button id="resume-btn" class="interactive-btn resume-btn">Resume Flight Control</button>
+    </div>
+
+    <!-- VIEWPORT 1: COCKPIT GAME -->
+    <section id="view-cockpit" class="view-panel view-active cockpit-view">
+      <div class="canvas-card">
+        
+        <!-- Live HUD Info Bar -->
+        <div class="hud-info-bar">
+          <div class="hud-left-group">
+            <div class="hud-metric">
+              <span class="hud-metric-label mono">Shield Energy</span>
+              <div id="shield-heart-container" class="shield-hearts-row"></div>
+            </div>
+            <div class="hud-separator"></div>
+            <div class="hud-metric">
+              <span class="hud-metric-label mono">Sector Progress</span>
+              <div class="sector-progress-wrapper">
+                <span id="sector-hud-label" class="sector-progress-label mono">SEC 1</span>
+                <div class="progress-bar-track">
+                  <div id="sector-hud-bar" class="progress-bar-fill"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hud-right-group">
+            <div class="hud-metric align-right">
+              <span id="hud-pb-label" class="hud-metric-label mono">Personal Best</span>
+              <span id="hud-personal-best" class="run-cores-value mono">00000</span>
+            </div>
+            <div class="hud-separator"></div>
+            <div class="hud-metric align-right">
+              <span class="hud-metric-label mono">Harvested Cores</span>
+              <span id="hud-run-cores" class="run-cores-value mono">0</span>
+            </div>
+            <div class="hud-separator"></div>
+            <div class="hud-metric align-right">
+              <span class="hud-metric-label mono">Telemetry Output</span>
+              <div class="hud-score-wrapper">
+                <span id="hud-score" class="hud-score-value mono">00000</span>
+                <span id="hud-combo" class="hud-combo-badge mono">x1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas Body -->
+        <div class="canvas-viewport">
+          <canvas id="game-canvas"></canvas>
+          
+          <!-- Launch Prompt Overlay -->
+          <div id="launch-prompt-overlay" class="overlay-backdrop launch-overlay">
+            <span class="launch-subtitle mono">Flight Navigation Engaged</span>
+            <h2 class="launch-title">COCKPIT ONLINE</h2>
+            <div class="launch-buttons-row" style="display: flex; gap: 0.75rem; margin-top: 0.75rem;">
+              <button id="btn-splash-launch" class="interactive-btn launch-btn" style="margin-top: 0;" aria-label="Activate Ship Fusion Engines">
+                <svg xmlns="http://www.w3.org/2000/svg" class="launch-btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                <span>STANDARD FLIGHT</span>
+              </button>
+              <button id="btn-daily-launch" class="interactive-btn launch-btn" style="margin-top: 0; background-color: var(--color-pink);" aria-label="Activate Daily Seeded Run">
+                <svg xmlns="http://www.w3.org/2000/svg" class="launch-btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+                </svg>
+                <span>DAILY CHALLENGE</span>
+              </button>
+            </div>
+            <p class="launch-controls mono">[ Keyboard Controls: Space = Swing, R = Reset ]</p>
+            
+            <!-- Leaderboard Card -->
+            <div class="leaderboard-card mono">
+              <div class="leaderboard-title">TOP TELEMETRY RUNS</div>
+              <div id="leaderboard-list" class="leaderboard-entries">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Game Over Panel Overlay -->
+          <div id="game-over-panel" class="overlay-backdrop game-over-overlay" style="opacity: 0; pointer-events: none;">
+            <div class="game-over-card mono">
+              <span class="game-over-subtitle">TELEMETRY LOST</span>
+              <h2 id="game-over-label" class="game-over-title">VESSEL CRASHED</h2>
+              <div class="game-over-stats">
+                <div class="game-over-stat">
+                  <span class="stat-label">FINAL SCORE</span>
+                  <span id="game-over-score" class="stat-value text-rose">00000</span>
+                </div>
+                <div class="game-over-stat">
+                  <span class="stat-label">SECTOR REACHED</span>
+                  <span id="game-over-sector" class="stat-value text-amber">SEC 1</span>
+                </div>
+                <div class="game-over-stat">
+                  <span class="stat-label">PERSONAL BEST</span>
+                  <span id="game-over-best" class="stat-value text-cyan">00000</span>
+                </div>
+              </div>
+              <button id="game-over-retry" class="interactive-btn retry-btn">RE-LAUNCH VESSEL</button>
+            </div>
+          </div>
+
+          <!-- Large Sector Milestone Popup Overlay -->
+          <div id="sector-milestone-popup" class="overlay-backdrop milestone-popup">
+            <span class="milestone-subtitle mono">Transition Tunnel Cleared</span>
+            <h2 id="sector-milestone-title" class="milestone-title">SECTOR 2 CLEARED</h2>
+            <p class="milestone-desc mono">+1000 Bonus Score, Shields Re-aligned!</p>
+          </div>
+        </div>
+
+        <!-- Cockpit Quick Launch Bar -->
+        <div class="cockpit-footer">
+          <button id="btn-play" class="interactive-btn cockpit-reset-btn" aria-label="Reset flight path run">
+            <span>Reset Run</span>
+          </button>
+          <span id="danger-warning" class="danger-warning-badge mono" role="alert">
+            CRITICAL HULL PROXIMITY
+          </span>
+          <div class="cockpit-instructions mono">
+            Hold Screen or Space to Pivot
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEWPORT 2: SHOP / UPGRADES -->
+    <section id="view-terminal" class="view-panel view-hidden terminal-view">
+      <div class="card-terminal">
+        
+        <div class="terminal-header">
+          <div>
+            <h2 class="terminal-title">Upgrades Terminal</h2>
+            <p class="terminal-subtitle mono">Enhance spacecraft hardware units with collected cores.</p>
+          </div>
+          <div class="shop-balance-card mono">
+            <span class="shop-balance-label">BALANCE:</span>
+            <div class="shop-balance-value">
+              <span id="shop-cores-count">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="shop-grid">
+          
+          <!-- Card: Shield -->
+          <div class="upgrade-card">
+            <div class="upgrade-card-details">
+              <div class="upgrade-card-title-row">
+                <span class="upgrade-name">Reinforced Frame</span>
+                <span id="upg-shield-level" class="upgrade-badge-level mono">Lvl 1</span>
+              </div>
+              <p class="upgrade-card-desc">
+                Increases internal shielding parameters, allowing your craft to withstand hull impacts. Maximum Limit: 10.
+              </p>
+            </div>
+            <button id="buy-shield-btn" class="interactive-btn upgrade-buy-btn" aria-label="Purchase Reinforced Frame Upgrade">
+              <span id="buy-shield-label">Install Hardware Upgrade</span>
+              <span id="buy-shield-cost" class="upgrade-cost mono">10 Cores</span>
+            </button>
+          </div>
+
+          <!-- Card: Magnet -->
+          <div class="upgrade-card">
+            <div class="upgrade-card-details">
+              <div class="upgrade-card-title-row">
+                <span class="upgrade-name">Gravity Magnet</span>
+                <span id="upg-magnet-level" class="upgrade-badge-level mono text-amber">Lvl 1</span>
+              </div>
+              <p class="upgrade-card-desc">
+                Amplifies core collection reach, pulling passing energy fields towards your ship automatically. Maximum Limit: 10.
+              </p>
+            </div>
+            <button id="buy-magnet-btn" class="interactive-btn upgrade-buy-btn" aria-label="Purchase Gravity Magnet Upgrade">
+              <span id="buy-magnet-label">Install Hardware Upgrade</span>
+              <span id="buy-magnet-cost" class="upgrade-cost mono">15 Cores</span>
+            </button>
+          </div>
+
+          <!-- Card: Tether -->
+          <div class="upgrade-card">
+            <div class="upgrade-card-details">
+              <div class="upgrade-card-title-row">
+                <span class="upgrade-name">Tether Extender</span>
+                <span id="upg-tether-level" class="upgrade-badge-level mono text-green">Lvl 1</span>
+              </div>
+              <p class="upgrade-card-desc">
+                Improves tether range tolerances R_max on navigation nodes. Maximum Limit: 10.
+              </p>
+            </div>
+            <button id="buy-tether-btn" class="interactive-btn upgrade-buy-btn" aria-label="Purchase Tether Extender Upgrade">
+              <span id="buy-tether-label">Install Hardware Upgrade</span>
+              <span id="buy-tether-cost" class="upgrade-cost mono">20 Cores</span>
+            </button>
+          </div>
+
+          <!-- Card: Cosmetic Skins -->
+          <div class="upgrade-card">
+            <div class="upgrade-card-details">
+              <div class="upgrade-card-title-row">
+                <span class="upgrade-name">Navigation Core Theme</span>
+                <span id="upg-skin-name" class="upgrade-badge-level mono text-pink">DEFAULT</span>
+              </div>
+              <p class="upgrade-card-desc">
+                Unlocks different visual profiles for your spacecraft shell and trail.
+              </p>
+            </div>
+            <button id="buy-skin-btn" class="interactive-btn upgrade-buy-btn" aria-label="Cycle Spacecraft Visual Theme">
+              <span id="buy-skin-label">Unlock Next Theme</span>
+              <span id="buy-skin-cost" class="upgrade-cost mono">30 Cores</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEWPORT 3: DIAGNOSTICS & TELEMETRY -->
+    <section id="view-telemetry" class="view-panel view-hidden telemetry-view">
+      <div class="telemetry-grid">
+        
+        <!-- Live System Readouts -->
+        <div class="metrics-panel">
+          <h3 class="metrics-panel-title">
+            <div class="metrics-indicator-dot" aria-hidden="true"></div>
+            Real-time Telemetry Metrics
+          </h3>
+          <div class="metrics-grid mono">
+            <div class="metric-card">
+              <span class="metric-label">ORBIT SIGNAL CROSS</span>
+              <span id="telemetry-sigma" class="metric-value text-cyan">N/A</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">VELOCITY MULTIPLIER</span>
+              <span id="telemetry-velocity" class="metric-value text-emerald">0 px/s</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">MAX ACTIVE TETHER</span>
+              <span id="telemetry-reach" class="metric-value text-indigo">180px</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">SESSION CORES UNLOCKED</span>
+              <span id="telemetry-cores" class="metric-value text-amber">0</span>
+            </div>
+          </div>
+
+          <!-- Dynamic Audio Synth Tuning Stems -->
+          <div class="synth-feedback-panel">
+            <span class="synth-feedback-title mono">Acoustic Synthesizer Feedback</span>
+            <div class="synth-feedback-grid mono">
+              <div class="synth-feedback-card">
+                <span class="synth-feedback-label">Drone Freq</span>
+                <span id="synth-freq" class="synth-feedback-value text-pink">110 Hz</span>
+              </div>
+              <div class="synth-feedback-card">
+                <span class="synth-feedback-label">Filter Sweep</span>
+                <span id="synth-mod" class="synth-feedback-value text-cyan">350 Hz</span>
+              </div>
+              <div class="synth-feedback-card">
+                <span class="synth-feedback-label">Tempo Modulation</span>
+                <span id="synth-tempo" class="synth-feedback-value text-emerald">4.0 Hz</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logging Terminal -->
+        <div class="log-panel">
+          <h3 class="log-panel-title">LOG TRANSMISSION STREAM</h3>
+          <div id="metric-log" class="log-stream mono">
+            <div>[INIT] Diagnostics stream aligned. Ready for data transmission.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEWPORT 4: CALIBRATION SETTINGS -->
+    <section id="view-calibration" class="view-panel view-hidden calibration-view">
+      <div class="calibration-panel">
+        
+        <div>
+          <h2 class="calibration-title">System Calibration Settings</h2>
+          <p class="calibration-subtitle mono">Fine-tune physics matrices and dynamic edge fallbacks.</p>
+        </div>
+
+        <div class="calibration-grid">
+          
+          <!-- Left: Environmental Sliders -->
+          <div class="sliders-group">
+            <h3 class="calibration-group-title mono">Engine Parameters</h3>
+            
+            <div class="slider-card">
+              <div class="slider-header mono">
+                <span>Linear Propulsion Speed</span>
+                <span id="val-speed">6.0</span>
+              </div>
+              <input id="slide-speed" class="range-slider" type="range" min="3.0" max="15.0" step="0.5" value="6.0">
+            </div>
+
+            <div class="slider-card">
+              <div class="slider-header mono">
+                <span>Sub-stepping Divisions ($N$)</span>
+                <span id="val-substeps">4</span>
+              </div>
+              <input id="slide-substeps" class="range-slider" type="range" min="1" max="10" step="1" value="4">
+            </div>
+
+            <div class="slider-card">
+              <div class="slider-header mono">
+                <span>Near-Miss Target Envelope</span>
+                <span id="val-buffer">30px</span>
+              </div>
+              <input id="slide-buffer" class="range-slider" type="range" min="15" max="60" step="5" value="30">
+            </div>
+          </div>
+
+          <!-- Right: Vulnerability Matrix -->
+          <div class="toggles-group">
+            <h3 class="calibration-group-title mono">Audit Toggles (Sandbox Mode)</h3>
+            
+            <div class="toggles-list">
+              <label class="checkbox-label cursor-pointer">
+                <input type="checkbox" id="toggle-substep" class="checkbox-input" checked>
+                <div class="checkbox-details">
+                  <span class="checkbox-title">Sub-stepping Calculations (Fix #2)</span>
+                  <span class="checkbox-desc">Averts positional tunneling at high velocity frames.</span>
+                </div>
+              </label>
+
+              <label class="checkbox-label cursor-pointer">
+                <input type="checkbox" id="toggle-safety" class="checkbox-input" checked>
+                <div class="checkbox-details">
+                  <span class="checkbox-title">Clearance Safety Splines (Fix #4)</span>
+                  <span class="checkbox-desc">Ensures gaps are always mathematically navigable.</span>
+                </div>
+              </label>
+
+              <label class="checkbox-label cursor-pointer">
+                <input type="checkbox" id="toggle-singularity" class="checkbox-input" checked>
+                <div class="checkbox-details">
+                  <span class="checkbox-title">Collinear Fallback Protection (Fix #1)</span>
+                  <span class="checkbox-desc">Prevents spatial zero-radius lock soft-locks.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Script entrypoint bootstrap -->
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
