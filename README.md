@@ -2,6 +2,10 @@
 
 A hyper-casual physics-based space navigation game. Pilot your spark spacecraft through an infinite cave, tethering to gravitational anchor nodes to orbit, swing, and sling yourself around hazards while collecting energy cores.
 
+> **Status: proprietary.** This repository is public for source visibility and
+> transparency. It is **not open source** — there is no license grant to reuse,
+> modify, or redistribute this code. See [LICENSE](LICENSE).
+
 ## Tech Stack
 - **Language:** TypeScript (strict mode)
 - **Styling:** Vanilla CSS (custom properties, theme variables, zero utility overhead)
