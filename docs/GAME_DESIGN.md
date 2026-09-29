@@ -113,3 +113,33 @@ Toggles and parameters in the calibration tab fine-tune mechanics:
 - **Sub-step toggle**: Enables/disables physics sub-stepping.
 - **Safety Splines toggle**: Widens the cave clearance gap by 30px.
 - **Collinear Fallback toggle**: Enables division-by-zero protection.
+
+---
+
+## 9. Codebase Provenance — Single-File Prototype
+
+The game was originally distributed as a single self-contained file,
+`original/gravity_pivot_game.html` (~82 KB: markup, inline CSS, and one inline
+`<script>` containing the whole engine). That file was the **pre-refactor
+ancestor** of the current codebase and is **no longer distributed**.
+
+It was superseded by the Vite + TypeScript module tree in `src/`, split into
+`engine/`, `world/`, `renderer/`, `ui/`, `audio/`, `effects/`, and `state/`,
+with constructor dependency injection replacing the prototype's direct DOM
+reads. `index.html` is the sole Vite entry point and loads `/src/main.ts`.
+
+Key points:
+- **Nothing references the prototype.** It was not part of the build, the dev
+  server, the test suite, or the CI workflow. Removing it changes no behavior.
+- **It is strictly older, not a divergent build.** It persisted saves under the
+  `gravity_pivot_*_v5` `localStorage` keys, whereas `src/state/saveState.ts` uses
+  the `_v6` keys (see invariant #4 in `docs/agent/AGENTS.md`). Loading the
+  prototype would therefore have *regressed* existing player saves.
+- **The TypeScript is a faithful refactor of it.** The tether-establishment
+  collinear fallback, `EPSILON = 1e-5`, and the sinusoidal cave-wall splines are
+  character-for-character equivalent between the two.
+- **It distorted repository metadata.** At 82 KB it out-weighted the entire
+  hand-written `src/` tree in byte count, causing GitHub to classify this
+  TypeScript project as `HTML`.
+
+The file has been removed from both the current tree and repository history.
