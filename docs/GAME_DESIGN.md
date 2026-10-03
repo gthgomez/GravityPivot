@@ -133,7 +133,7 @@ Key points:
   server, the test suite, or the CI workflow. Removing it changes no behavior.
 - **It is strictly older, not a divergent build.** It persisted saves under the
   `gravity_pivot_*_v5` `localStorage` keys, whereas `src/state/saveState.ts` uses
-  the `_v6` keys (see invariant #4 in `docs/agent/AGENTS.md`). Loading the
+  the `_v6` keys (see invariant #4 in the root `AGENTS.md`). Loading the
   prototype would therefore have *regressed* existing player saves.
 - **The TypeScript is a faithful refactor of it.** The tether-establishment
   collinear fallback, `EPSILON = 1e-5`, and the sinusoidal cave-wall splines are
