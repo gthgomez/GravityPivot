@@ -1,6 +1,10 @@
 # AGENTS.md — GravityPivot
 
-> Inherits from `C:\Workspace\Project_Games\AGENTS.md` and `CLAUDE.md`.
+> This root `AGENTS.md` is the sole repository instruction authority for
+> GravityPivot. Model/vendor instruction files (`CLAUDE.md`, `GEMINI.md`,
+> `CODEX.md`) and nested instruction files are prohibited. Authorization is
+> defined by the workspace-root `AGENTS.md`; engineering quality by the
+> workspace-root `ENGINEERING.md`.
 > This file covers canvas-engine–specific guardrails for the GravityPivot project only.
 
 ## Stack
