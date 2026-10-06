@@ -1,61 +1,52 @@
-# Gravity Pivot - Refactored Web Edition
+# GravityPivot
 
-A hyper-casual physics-based space navigation game. Pilot your spark spacecraft through an infinite cave, tethering to gravitational anchor nodes to orbit, swing, and sling yourself around hazards while collecting energy cores.
+A small browser game built around one decision: **hold to tether, orbit an anchor, then release to sling through the cave.** Read the route, choose your release, and skim the walls to build a combo.
 
-> **Status: proprietary.** This repository is public for source visibility and
-> transparency. It is **not open source** — there is no license grant to reuse,
-> modify, or redistribute this code. See [LICENSE](LICENSE).
+![GravityPivot gameplay: the spark slings through a cave between gravity anchors](docs/assets/gravitypivot-gameplay.png)
 
-## Tech Stack
-- **Language:** TypeScript (strict mode)
-- **Styling:** Vanilla CSS (custom properties, theme variables, zero utility overhead)
-- **Build Tool:** Vite
-- **Testing Framework:** Vitest
-- **Formatting and linting:** Biome
+The GitHub Pages build is prepared at `https://gthgomez.github.io/GravityPivot/`; the live URL becomes active after the repository Pages setting is enabled and the reviewed publish workflow is run. No live deployment is claimed yet.
 
-## Game Architecture
-The code is split into decoupled modules using constructor Dependency Injection:
-- `src/main.ts` - Bootstrap loader and DI configuration
-- `src/ui/uiController.ts` - Interface layer (owns all DOM element interactions)
-- `src/renderer/canvasRenderer.ts` - Graphic renderer (canvas-only drawing)
-- `src/engine/engine.ts` - Pure physics/simulation loop (no DOM or Canvas coupling)
-- `src/world/generator.ts` - Infinite sliding window procedural generation & cave boundaries
-- `src/audio/synth.ts` - Web Audio API sound synthesis and SFX stems
-- `src/effects/particles.ts` - Zero-allocation swap-and-pop particle pool
-- `src/state/saveState.ts` - Upgrade level and core balance persistent serialization
-- `src/constants.ts` - Shared enums (`FlightState`, `GamePhase`) and settings configurations
+## Controls
 
-## Getting Started
+- Hold Space while the playfield is focused, or press and hold on the playfield, to tether.
+- Release to sling forward.
+- Press `R` while the playfield is focused to reset the run.
+- In Daily mode, the nearest anchor is selected automatically; mouse position does not change the challenge.
 
-### Prerequisites
-- Node.js 24 LTS
-- npm
+## What is implemented
 
-### Installation
+- Standard runs with saved upgrades, skins, cores, and top-five scores.
+- A UTC-dated, rules-versioned Daily challenge with standardized upgrades and physics.
+- Seeded procedural geometry with seam, bounds, and extended seed checks.
+- A fixed-step TypeScript simulation and Canvas 2D renderer.
+- Saved sound and motion preferences, including system reduced-motion support.
+- Validated local saves with non-destructive migration from legacy v6 keys.
+
+Daily runs are locally comparable. The game has no server-side leaderboard or anti-cheat system.
+
+## Architecture
+
+The custom engine owns motion, tethering, collisions, scoring, and world progression. `WorldGenerator` owns seeded cave geometry. `CanvasRenderer` draws the world through the same viewport transform used by pointer input. The UI, Web Audio effects, pooled particles, and validated save state remain separate modules. The engine does not read or write browser storage.
+
+## Development
+
+Requires Node.js 24 LTS.
+
 ```bash
-# Install dependencies
 npm ci
-```
-
-### Development
-```bash
-# Launch hot-reloading development server
 npm run dev
 ```
 
-### Testing
+## Verification
+
 ```bash
-# Run formatting, lint, typecheck, unit tests, and the production build
 npm run verify
-
-# Run the production app in desktop and touch-enabled Chromium
 npm run test:browser
+npm run test:procgen:extended
 ```
 
-Install the local browser once with `npx playwright install chromium`. CI installs Chromium automatically.
+`npm run verify` checks formatting, lint, types, unit tests, and the production build. The Playwright suite exercises the production preview in desktop Chromium, touch-enabled Chromium emulation, and WebKit. These browser runs do not qualify physical iOS or Android devices. Install browsers locally with `npx playwright install chromium webkit` (Linux CI also installs their system dependencies).
 
-### Build
-```bash
-# Bundle production build to /dist
-npm run build
-```
+## License
+
+The repository is public for source visibility and is proprietary. The [LICENSE](LICENSE) does not grant permission to reuse, modify, or redistribute the code.
