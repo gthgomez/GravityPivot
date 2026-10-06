@@ -405,15 +405,16 @@ export class UIController {
 
     if (!btn) return;
 
-    const nextSkinId = saveState.unlockedSkins.length;
-    if (nextSkinId >= SHIP_SKINS.length) {
+    const nextSkin = SHIP_SKINS.find(
+      (skin) => !saveState.unlockedSkins.includes(skin.id),
+    );
+    if (!nextSkin) {
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.style.cursor = 'pointer';
       if (label) label.textContent = 'Cycle Active Theme';
       if (cost) cost.textContent = 'FREE';
     } else {
-      const nextSkin = SHIP_SKINS[nextSkinId];
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.style.cursor = 'pointer';

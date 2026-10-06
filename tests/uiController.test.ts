@@ -360,6 +360,17 @@ describe('UIController', () => {
     expect(el('buy-skin-cost').textContent).toBe('30 Cores');
   });
 
+  test('shows the first missing skin when saved ownership IDs have gaps', () => {
+    const saveState = {
+      unlockedSkins: [0, 2],
+      activeSkinId: 0,
+      totalCores: 0,
+    } as any;
+    ui.syncSkinButton(saveState);
+    expect(el('buy-skin-label').textContent).toBe('Unlock Cyber Pink');
+    expect(el('buy-skin-cost').textContent).toBe('30 Cores');
+  });
+
   test('should show cycle option when all skins unlocked', () => {
     const saveState = {
       unlockedSkins: [0, 1, 2, 3],

@@ -179,7 +179,40 @@ describe('GravityPivotEngine', () => {
     );
   });
 
-  test('preserves the active tether anchor during a sector extension', () => {
+  test('sector leap places the spark safely in the destination corridor', () => {
+    const map = engine.getMapData() as any;
+    (engine as any).ensureWorldThrough(15000);
+    map.upperWallSpline = Array.from({ length: 751 }, (_, i) => ({
+      x: i * 20,
+      y: i * 20 < 11000 ? 10 : 40,
+    }));
+    map.lowerWallSpline = Array.from({ length: 751 }, (_, i) => ({
+      x: i * 20,
+      y: 390,
+    }));
+
+    const spark = engine.getSparkState() as any;
+    spark.x = 9999;
+    spark.y = 24;
+    spark.vx = 6;
+    spark.vy = 0;
+
+    engine.physicsTick(1 / 60);
+
+    expect(engine.getSectorIndex()).toBe(2);
+    expect(spark.x).toBeGreaterThan(11000);
+    expect(spark.y).toBe(215);
+    expect(spark.vx).toBe(engine.getConfig().baseSpeed);
+    expect(spark.vy).toBe(0);
+    expect(WorldGenerator.checkWallCollision(map, spark.x, spark.y)).toBe(
+      false,
+    );
+
+    engine.physicsTick(1 / 60);
+    expect(engine.getGamePhase()).toBe(GamePhase.FLYING);
+  });
+
+  test('releases the tether at a sector leap without snapping back next tick', () => {
     const map = engine.getMapData() as any;
     map.nodes = [{ id: 'preserved-orbit', x: 10000, y: 200, radius: 20 }];
     const spark = engine.getSparkState() as any;
@@ -191,10 +224,15 @@ describe('GravityPivotEngine', () => {
     engine.physicsTick(1 / 60);
 
     expect(engine.getSectorIndex()).toBe(2);
-    expect(spark.flightState).toBe(FlightState.ORBITAL);
+    expect(spark.flightState).toBe(FlightState.LINEAR);
+    expect(spark.orbitalNodeId).toBe('');
+    expect(callbacks.onTetherReleased).toHaveBeenCalledTimes(1);
     expect(map.nodes.some((node: any) => node.id === 'preserved-orbit')).toBe(
       true,
     );
+
+    engine.physicsTick(1 / 60);
+    expect(spark.x).toBeGreaterThan(10500);
   });
 
   test('rewards one continuous near-miss across a spline-cell boundary', () => {

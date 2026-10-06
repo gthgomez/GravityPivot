@@ -14,6 +14,8 @@ The procedural generator places anchors 250–350 units apart and samples upper/
 
 Near misses are continuous danger-and-escape episodes: entering the danger envelope starts an episode, and leaving it safely rewards `200 × new combo` up to combo five. A collision cancels the episode. Core collection awards `150 × combo`.
 
+Crossing a sector boundary performs a hyper-jump: any tether is released, the ship is placed at the center of the destination corridor, and linear motion resumes at base speed. This prevents the discontinuous world relocation from keeping an old orbit or carrying the ship into a destination wall.
+
 ## Standard and Daily rules
 
 Standard runs use the player's saved upgrade levels. Daily runs use UTC `YYYY-MM-DD` identity, rules version 1, a deterministic seed, baseline level-one upgrades, fixed physics settings, and nearest-anchor acquisition. Cosmetics and audio do not alter the challenge. A run keeps the challenge identity captured at launch, including across midnight. Daily records are saved by date and rules version.

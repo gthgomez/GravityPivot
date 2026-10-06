@@ -413,10 +413,25 @@ export class GravityPivotEngine {
     this.sectorCooldown = this.simulationTimeMs;
     this.cancelNearMissEpisode();
 
+    // A sector jump changes world position discontinuously, so an orbit could
+    // no longer remain geometrically attached to its pre-jump anchor.
+    if (this.spark.flightState === FlightState.ORBITAL) {
+      this.releaseTether();
+    }
+
     const destinationX = this.spark.x + 1000;
     this.ensureWorldThrough(destinationX + 3000);
     this.sectorIndex++;
     this.spark.x = destinationX;
+    const destinationWalls = WorldGenerator.getWallBoundaries(
+      this.mapData,
+      destinationX,
+    );
+    this.spark.y =
+      destinationWalls.upperY +
+      (destinationWalls.lowerY - destinationWalls.upperY) / 2;
+    this.spark.vx = this.config.baseSpeed;
+    this.spark.vy = 0;
 
     // Reset trail buffer to prevent a giant leap line
     this.trailLength = 0;
