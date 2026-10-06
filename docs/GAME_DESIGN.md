@@ -1,145 +1,33 @@
-# Gravity Pivot - Game Design Document
+# GravityPivot — Game Design
 
-This document defines the core mechanics, math, physics, progression systems, and calibration properties for **Gravity Pivot**.
+## Core loop
 
-## 1. Core Loop
-Pilot a spacecraft (referred to as the `spark`) through an infinite horizontal scrolling cave. The ship moves forward automatically and falls under linear momentum. The player can press Space or tap the screen to activate a gravity tether to the nearest anchor node within tether range.
-While tethered, the ship orbits the node. Releasing the tether swings the ship back into linear flight with conservation of angular velocity.
+Fly through a side-scrolling cave, hold to tether to an anchor, orbit, then release to sling forward. Collect cores for Standard-run progression and skim near the walls to build a combo. A run ends when the ship has no shields left.
 
-The player's objectives are:
-1. Avoid colliding with the cave walls (which damages shield energy).
-2. Collect floating yellow energy cores to buy permanent upgrade models.
-3. Maximize score by pulling off near-misses against walls to build combo multipliers.
-4. Reach higher sectors by traveling forward.
+The intended mastery is route reading and release timing. Inputs are Space while the playfield is focused, or a primary pointer hold on the playfield. Daily runs choose the nearest anchor regardless of pointer location; Standard runs allow pointer aiming.
 
----
+## Simulation and world
 
-## 2. Player Entity Model (Spark)
-The player state is defined by the following fields:
-- `x`, `y`: Position in world space.
-- `vx`, `vy`: Velocity vector.
-- `flightState`: Either `LINEAR` or `ORBITAL`.
-- `orbitalNodeId`: The ID of the pivot node currently orbited.
-- `orbitalRadius`: Distance from the active node center.
-- `orbitalSigma`: Direction of orbital rotation (-1 for counter-clockwise, 1 for clockwise).
-- `orbitalTheta`: Angle in radians relative to the node center.
-- `angularSpeed`: Speed of rotation in radians/tick.
-- `score`: Total points accumulated in the run.
-- `combo`: Combo multiplier (ranges 1 to 5).
-- `collectedInRun`: Number of cores collected during the active run.
-- `activeNearMisses`: A set of spline indices where near-miss events have been initiated.
-- `shield`: Current shield energy.
-- `maxShield`: Maximum shield capacity based on upgrade level.
-- `shieldInvulnFrames`: Ticks remaining of invulnerability after taking damage.
+The engine advances at a fixed 60 Hz. Wall collision uses configurable samples within each tick (default four); core magnet attraction runs once per tick and does not scale with collision precision. The game world is 400 logical units high and renders with a shared uniform transform for drawing and pointer coordinates.
 
----
+The procedural generator places anchors 250–350 units apart and samples upper/lower wall splines on a 20-unit grid. Chunk continuation keeps anchor and wall frontiers separately. Safety generation enforces ordering, finite bounds, and minimum corridor clearance; these are generation invariants, not a mathematical proof that every route is human-navigable. A reproducible 1,000-seed property set runs in the regular suite; `npm run test:procgen:extended` checks 10,000 seeds and repeated extension/culling.
 
-## 3. World Generation & Layout
-The game map consists of three procedurally generated element pools:
-- **Anchor Nodes**: Circular gravitational anchors placed every 250 to 350 world-X pixels. They have a physical radius (18px to 24px) and an active gravitational field of radius $R_{\max}$ (upgradeable, defaults to 180px).
-- **Energy Cores**: Small yellow nodes placed procedurally around anchor nodes. Each node generates 2 to 5 cores distributed circularly at a radius of 60px to 120px.
-- **Cave Walls**: Generated as a sequence of upper and lower control points (splines) sampled every 20px.
-  - The splines track the player's progression.
-  - Wall heights dynamically expand and contract based on sinusoidal noise waves:
-    - Upper Wall: `closestNode.y - safetyEnvelope + sin(x * 0.015) * 20`
-    - Lower Wall: `closestNode.y + safetyEnvelope + cos(x * 0.015) * 20`
-  - The envelope width represents the navigable gap. In safety-splines mode, this gap is widened dynamically by 30px to guarantee the layout is navigable at all speeds.
+Near misses are continuous danger-and-escape episodes: entering the danger envelope starts an episode, and leaving it safely rewards `200 × new combo` up to combo five. A collision cancels the episode. Core collection awards `150 × combo`.
 
----
+## Standard and Daily rules
 
-## 4. Physics and Collision Model
-The simulation uses a fixed-timestep accumulator (at 60Hz) with sub-stepping for tunneling prevention:
-- **Sub-stepping**: The physics time step is divided into $N$ substeps (defaults to 4). In each substep, position updates are applied and collisions are checked to prevent tunneling through thin wall splines at high velocities.
-- **Linear Flight**:
-  $$x \leftarrow x + v_x \cdot dt \cdot 60$$
-  $$y \leftarrow y + v_y \cdot dt \cdot 60$$
-- **Orbital Flight**:
-  $$\theta \leftarrow \theta + \omega \cdot dt \cdot 60$$
-  $$x \leftarrow x_{\text{node}} + r \cdot \cos(\theta)$$
-  $$y \leftarrow y_{\text{node}} + r \cdot \sin(\theta)$$
-  The tangential velocity vector is recalculated:
-  $$v_x \leftarrow -v \cdot \sigma \cdot \sin(\theta)$$
-  $$v_y \leftarrow v \cdot \sigma \cdot \cos(\theta)$$
-- **Collinear Fallback**: When establishing a tether, the sign of the cross product between the tether vector and the velocity vector determines the orbital rotation direction ($\sigma$). If they are exactly collinear (cross product $\approx 0$), a fallback sets $\sigma = 1$ to prevent a division-by-zero or rotation lock.
-- **Wall Collisions**: Checked by comparing the ship's $y$-position against interpolated upper and lower wall boundaries at the ship's current $x$-coordinate. When a collision occurs:
-  - Shield energy is decremented by 1.
-  - Combo multiplier resets to 1.
-  - Invulnerability frames are set to 60 (1 second).
-  - If shield > 0, the ship is pushed back into the center of the safe zone and linear flight is restored.
-  - If shield $\le$ 0, the ship crashes and game-over state is triggered.
+Standard runs use the player's saved upgrade levels. Daily runs use UTC `YYYY-MM-DD` identity, rules version 1, a deterministic seed, baseline level-one upgrades, fixed physics settings, and nearest-anchor acquisition. Cosmetics and audio do not alter the challenge. A run keeps the challenge identity captured at launch, including across midnight. Daily records are saved by date and rules version.
 
----
+Daily is locally comparable gameplay, not a tamper-resistant leaderboard or a promise of bit-identical floating-point results across browsers. Changes to generation, movement, scoring, or input semantics require a Daily rules-version decision.
 
-## 5. Scoring and Combos
-- **Core collection**: Awards `150 * combo` points.
-- **Near-Misses**: A near-miss is triggered when the ship passes within the danger envelope (`hazardProximityBuffer`, default 30px) of either wall:
-  - Entering the danger envelope registers the spline index in `activeNearMisses`.
-  - Safely exiting the danger zone without crashing rewards a near-miss bonus: `200 * combo` points, increases the combo multiplier by 1 (max 5), and triggers visual feedback.
-- **Sector Milestone**: Reaching a sector milestone awards `1000 * sectorIndex` points.
+## Progression and saves
 
----
+Shield, magnet, and tether upgrades range from level 1 to 10. Upgrade costs use `floor(baseCost × 1.5^(current level − 1))`, with base costs 10, 15, and 20 cores. Core balance, upgrades, top five Standard scores, owned/active skins, sound and motion preferences, and up to 30 Daily dates live in the validated version 7 `gravity_pivot_save` record. Existing `_v6` keys are migrated without deletion; unqualified legacy Daily scores are not promoted into version 1 results.
 
-## 6. Progression & Upgrades
-Cores are accumulated across runs in `localStorage` and can be spent on three permanent upgrades (max level 5):
-1. **Reinforced Frame (Shield)**:
-   - Increments max shield capacity (Lvl 1 = 1 shield, Lvl 5 = 5 shields).
-   - Cost: `level * 10` cores.
-2. **Gravity Magnet (Magnet)**:
-   - Amplifies core collection reach. Pulls cores toward the ship when they enter the magnetic radius.
-   - Magnetic radius: `40 + (level - 1) * 35` pixels.
-   - Cost: `level * 15` cores.
-3. **Tether Extender (Tether)**:
-   - Extends tether reach ($R_{\max}$).
-   - Tether radius: `180 + (level - 1) * 35` pixels.
-   - Cost: `level * 20` cores.
+## Player settings and diagnostics
 
----
+The header button controls saved sound preference. Motion defaults to the system reduced-motion preference and can be overridden in Settings. Engineering calibration is available only with `?debug=1`; it is unavailable during Daily runs. The exact-zero collinear orbit fallback is always enabled.
 
-## 7. Sector Leap System
-- A sector is 10,000 pixels wide.
-- Reaching a sector boundary triggers a sector leap:
-  - Restores player shields to max capacity.
-  - Triggers a 2-second cooldown on further sector leaps to prevent duplicate triggers.
-  - Generates the next 30 segments of the map.
-  - Cull maps behind the camera threshold ($x - 500$) to keep memory footprint minimal.
+## Verification scope
 
----
-
-## 8. Calibration Sandbox Mode
-Toggles and parameters in the calibration tab fine-tune mechanics:
-- **Linear Propulsion Speed**: Standard forward velocity (defaults to 6px/frame).
-- **Sub-stepping Divisions**: Number of physics subdivisions (1 to 10).
-- **Near-Miss Envelope**: Distance to wall to qualify for near-miss (15px to 60px).
-- **Sub-step toggle**: Enables/disables physics sub-stepping.
-- **Safety Splines toggle**: Widens the cave clearance gap by 30px.
-- **Collinear Fallback toggle**: Enables division-by-zero protection.
-
----
-
-## 9. Codebase Provenance — Single-File Prototype
-
-The game was originally distributed as a single self-contained file,
-`original/gravity_pivot_game.html` (~82 KB: markup, inline CSS, and one inline
-`<script>` containing the whole engine). That file was the **pre-refactor
-ancestor** of the current codebase and is **no longer distributed**.
-
-It was superseded by the Vite + TypeScript module tree in `src/`, split into
-`engine/`, `world/`, `renderer/`, `ui/`, `audio/`, `effects/`, and `state/`,
-with constructor dependency injection replacing the prototype's direct DOM
-reads. `index.html` is the sole Vite entry point and loads `/src/main.ts`.
-
-Key points:
-- **Nothing references the prototype.** It was not part of the build, the dev
-  server, the test suite, or the CI workflow. Removing it changes no behavior.
-- **It is strictly older, not a divergent build.** It persisted saves under the
-  `gravity_pivot_*_v5` `localStorage` keys, whereas `src/state/saveState.ts` uses
-  the `_v6` keys (see invariant #4 in the root `AGENTS.md`). Loading the
-  prototype would therefore have *regressed* existing player saves.
-- **The TypeScript is a faithful refactor of it.** The tether-establishment
-  collinear fallback, `EPSILON = 1e-5`, and the sinusoidal cave-wall splines are
-  character-for-character equivalent between the two.
-- **It distorted repository metadata.** At 82 KB it out-weighted the entire
-  hand-written `src/` tree in byte count, causing GitHub to classify this
-  TypeScript project as `HTML`.
-
-The file has been removed from both the current tree and repository history.
+`npm run verify` runs formatting, lint, type checking, unit tests, and the production build. `npm run test:browser` runs production-preview journeys in desktop Chromium, touch-enabled Chromium emulation, and WebKit. Touch emulation and desktop WebKit checks do not constitute physical mobile-device qualification.
