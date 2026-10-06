@@ -1,6 +1,11 @@
 import { CalibrationState } from '../types';
 import { ViewTab, DEFAULT_CONFIG, upgradeCost, SHIP_SKINS } from '../constants';
 import { GameSaveState } from '../state/saveState';
+import {
+  cameraOffsetForSpark,
+  clientToWorld,
+  createViewportTransform,
+} from '../renderer/viewport';
 
 export class UIController {
   private elements: Record<string, HTMLElement | null> = {};
@@ -354,23 +359,16 @@ export class UIController {
     clientY: number,
     sparkX: number,
     canvas: HTMLCanvasElement,
-  ): { worldX: number; worldY: number } {
+  ): { worldX: number; worldY: number } | null {
     const rect = canvas.getBoundingClientRect();
-    const cssX = clientX - rect.left;
-    const cssY = clientY - rect.top;
-
-    const width = rect.width || 1;
-    const height = rect.height || 1;
-    const localX =
-      (cssX / width) * (canvas.width / (window.devicePixelRatio || 1));
-    const localY =
-      (cssY / height) * (canvas.height / (window.devicePixelRatio || 1));
-
-    const cameraOffsetX = Math.round(-sparkX + 150);
-    return {
-      worldX: localX - cameraOffsetX,
-      worldY: localY,
-    };
+    const cameraX = cameraOffsetForSpark(sparkX);
+    const viewport = createViewportTransform(
+      rect.width,
+      rect.height,
+      window.devicePixelRatio || 1,
+      cameraX,
+    );
+    return viewport ? clientToWorld(clientX, clientY, rect, viewport) : null;
   }
 
   public syncSkinButton(saveState: GameSaveState): void {

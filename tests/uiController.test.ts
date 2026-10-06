@@ -73,11 +73,13 @@ describe('UIController', () => {
 
     // sparkX = 100 -> cameraOffsetX = -100 + 150 = 50
     const coords = ui.getWorldCoords(210, 120, 100, canvas);
+    expect(coords).not.toBeNull();
+    if (!coords) return;
     // cssX = 200, cssY = 100
-    // localX = (200/400) * (800/2) = 200; localY = (100/200) * (400/2) = 100
-    // worldX = 200 - 50 = 150; worldY = 100
-    expect(coords.worldX).toBe(150);
-    expect(coords.worldY).toBe(100);
+    // The full 400-unit world height scales to 200 CSS pixels (0.5 CSS/world).
+    // worldX = 200/0.5 - 50 = 350; worldY = 100/0.5 = 200.
+    expect(coords.worldX).toBe(350);
+    expect(coords.worldY).toBe(200);
   });
 
   test('should shift world coordinates based on spark camera offset', () => {
@@ -94,8 +96,11 @@ describe('UIController', () => {
 
     // sparkX = 1150 -> cameraOffsetX = -1150 + 150 = -1000
     const coords = ui.getWorldCoords(200, 100, 1150, canvas);
-    // localX = 200 -> worldX = 200 - (-1000) = 1200
-    expect(coords.worldX).toBe(1200);
+    expect(coords).not.toBeNull();
+    if (!coords) return;
+    // localX = 200/0.5 = 400 -> worldX = 400 - (-1000) = 1400
+    expect(coords.worldX).toBe(1400);
+    expect(coords.worldY).toBe(200);
   });
 
   // --- Pause overlay ---

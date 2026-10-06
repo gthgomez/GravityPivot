@@ -33,6 +33,10 @@ export const DEFAULT_CONFIG = {
   maxParticles: 150,
 } as const;
 
+export const WORLD_VIEWPORT_HEIGHT = 400;
+export const WORLD_VIEWPORT_CENTER = WORLD_VIEWPORT_HEIGHT / 2;
+export const WORLD_WALL_MARGIN = 10;
+
 export function upgradeCost(baseCost: number, currentLevel: number): number {
   return Math.floor(baseCost * Math.pow(1.5, currentLevel - 1));
 }

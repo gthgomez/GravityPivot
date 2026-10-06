@@ -126,3 +126,36 @@ test('synthetic visibility events pause and resume only on explicit action', asy
   await page.getByRole('button', { name: 'Resume Flight Control' }).click();
   await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '0');
 });
+
+test('resized canvas keeps the full 400-unit world at its current DPR', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto('/');
+  const viewport = await page.locator('#game-canvas').evaluate((canvas) => {
+    const element = canvas as HTMLCanvasElement;
+    const rect = element.getBoundingClientRect();
+    return {
+      cssWidth: rect.width,
+      cssHeight: rect.height,
+      dpr: window.devicePixelRatio,
+      backingWidth: element.width,
+      backingHeight: element.height,
+    };
+  });
+  expect(viewport.backingWidth).toBe(
+    Math.round(viewport.cssWidth * viewport.dpr),
+  );
+  expect(viewport.backingHeight).toBe(
+    Math.round(viewport.cssHeight * viewport.dpr),
+  );
+  expect(viewport.cssHeight).toBe(300);
+
+  await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
+  await page.waitForTimeout(250);
+  await page.keyboard.down('Space');
+  await expect(page.locator('#metric-log')).toContainText(
+    'Tether secure on orbit node',
+  );
+  await page.keyboard.up('Space');
+});

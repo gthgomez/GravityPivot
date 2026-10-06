@@ -1,6 +1,13 @@
 import { SparkState, MapData, TrailBuffer } from '../types';
 import { ParticleEngine } from '../effects/particles';
 import { FlightState, GamePhase, SHIP_SKINS } from '../constants';
+import { WORLD_VIEWPORT_HEIGHT } from '../constants';
+import {
+  cameraOffsetForSpark,
+  createViewportTransform,
+  ViewportTransform,
+  worldToScreen,
+} from './viewport';
 
 export class CanvasRenderer {
   private canvas: HTMLCanvasElement;
@@ -43,6 +50,20 @@ export class CanvasRenderer {
     });
   }
 
+  public spawnWorldFloatingText(
+    worldX: number,
+    worldY: number,
+    text: string,
+    color: string,
+    sparkX: number,
+  ): void {
+    const cameraX = cameraOffsetForSpark(sparkX);
+    const viewport = this.getViewport(cameraX);
+    if (!viewport) return;
+    const point = worldToScreen(worldX, worldY, viewport);
+    this.spawnFloatingText(point.x, point.y, text, color);
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const context = canvas.getContext('2d');
@@ -56,12 +77,44 @@ export class CanvasRenderer {
     return this.ctx;
   }
 
-  public setupResizing(parentWidth: number, parentHeight: number): void {
+  public setupResizing(cssWidth: number, cssHeight: number): void {
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = parentWidth * dpr;
-    this.canvas.height = parentHeight * dpr;
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.ctx.scale(dpr, dpr);
+    const nextViewport = createViewportTransform(cssWidth, cssHeight, dpr, 0);
+    if (!nextViewport) return;
+    this.canvas.width = Math.round(cssWidth * dpr);
+    this.canvas.height = Math.round(cssHeight * dpr);
+    this.ctx.setTransform(
+      dpr * nextViewport.cssScale,
+      0,
+      0,
+      dpr * nextViewport.cssScale,
+      0,
+      0,
+    );
+  }
+
+  public getViewport(cameraX = 0): ViewportTransform | null {
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    return createViewportTransform(rect.width, rect.height, dpr, cameraX);
+  }
+
+  public getLogicalSize(): { width: number; height: number } | null {
+    const viewport = this.getViewport();
+    return viewport
+      ? { width: viewport.logicalWidth, height: viewport.logicalHeight }
+      : null;
+  }
+
+  private setWorldTransform(viewport: ViewportTransform): void {
+    this.ctx.setTransform(
+      viewport.dpr * viewport.cssScale,
+      0,
+      0,
+      viewport.dpr * viewport.cssScale,
+      0,
+      0,
+    );
   }
 
   public draw(
@@ -74,9 +127,12 @@ export class CanvasRenderer {
     gamePhase: GamePhase,
     activeSkinId: number,
   ): void {
-    const scale = window.devicePixelRatio || 1;
-    const logicalWidth = this.canvas.width / scale;
-    const logicalHeight = this.canvas.height / scale;
+    const cameraOffsetX = cameraOffsetForSpark(spark.x);
+    const viewport = this.getViewport(cameraOffsetX);
+    if (!viewport) return;
+    this.setWorldTransform(viewport);
+    const logicalWidth = viewport.logicalWidth;
+    const logicalHeight = viewport.logicalHeight;
 
     const activeSkin =
       SHIP_SKINS.find((s) => s.id === activeSkinId) || SHIP_SKINS[0];
@@ -112,7 +168,6 @@ export class CanvasRenderer {
       this.ctx.restore();
     }
 
-    const cameraOffsetX = Math.round(-spark.x + 150);
     const shakeX =
       this.shakeIntensity > 0.5
         ? (Math.random() - 0.5) * this.shakeIntensity
@@ -134,7 +189,7 @@ export class CanvasRenderer {
     for (let gx = startGridX; gx < startGridX + 1000; gx += gridGap) {
       this.ctx.beginPath();
       this.ctx.moveTo(Math.round(gx), 0);
-      this.ctx.lineTo(Math.round(gx), 400);
+      this.ctx.lineTo(Math.round(gx), WORLD_VIEWPORT_HEIGHT);
       this.ctx.stroke();
     }
 
@@ -175,9 +230,9 @@ export class CanvasRenderer {
       const lowerFill = new Path2D(lowerSpline);
       lowerFill.lineTo(
         mapData.lowerWallSpline[mapData.lowerWallSpline.length - 1].x,
-        400,
+        WORLD_VIEWPORT_HEIGHT,
       );
-      lowerFill.lineTo(mapData.lowerWallSpline[0].x, 400);
+      lowerFill.lineTo(mapData.lowerWallSpline[0].x, WORLD_VIEWPORT_HEIGHT);
       lowerFill.closePath();
 
       this.ctx.fillStyle = `hsl(${sectorHue}, 25%, 8%)`;

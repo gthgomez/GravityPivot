@@ -77,20 +77,21 @@ window.addEventListener('DOMContentLoaded', () => {
       ui.updateCoreCount(runCores, totalCores);
       synth.playCoreCollected();
       particles.spawn(coreX, coreY, '#fbbf24', 3, 6);
-      const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
-      renderer.spawnFloatingText(
-        coreX + cameraOffsetX,
+      renderer.spawnWorldFloatingText(
+        coreX,
         coreY,
         '+150',
         '#fbbf24',
+        engine.getSparkState().x,
       );
     },
     onSectorLeap: (sectorIndex) => {
       synth.playSectorUp();
       ui.showSectorPopup(sectorIndex);
-      const scale = window.devicePixelRatio || 1;
+      const logicalSize = renderer.getLogicalSize();
+      if (!logicalSize) return;
       renderer.spawnFloatingText(
-        canvas.width / (2 * scale),
+        logicalSize.width / 2,
         100,
         'SECTOR CLEARED!',
         '#22d3ee',
@@ -100,12 +101,12 @@ window.addEventListener('DOMContentLoaded', () => {
       synth.playPing();
       particles.spawn(x, y, combo === 5 ? '#ec4899' : '#06b6d4', 4, 12);
       renderer.triggerShake(2);
-      const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
-      renderer.spawnFloatingText(
-        x + cameraOffsetX,
+      renderer.spawnWorldFloatingText(
+        x,
         y,
         `x${combo} COMBO!`,
         combo === 5 ? '#ec4899' : '#06b6d4',
+        engine.getSparkState().x,
       );
     },
     onDangerProximity: (active) => {
@@ -115,8 +116,13 @@ window.addEventListener('DOMContentLoaded', () => {
       synth.playShieldBounce();
       particles.spawn(x, y, '#10b981', 5, 12);
       renderer.triggerShake(6);
-      const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
-      renderer.spawnFloatingText(x + cameraOffsetX, y, '-1 SHIELD', '#f43f5e');
+      renderer.spawnWorldFloatingText(
+        x,
+        y,
+        '-1 SHIELD',
+        '#f43f5e',
+        engine.getSparkState().x,
+      );
     },
     onRunEnded: (result) => {
       const { x, y, score: finalScore, sectorReached } = result;
@@ -135,13 +141,15 @@ window.addEventListener('DOMContentLoaded', () => {
       synth.playExplosion();
       particles.spawn(x, y, '#f43f5e', 8, 30);
       renderer.triggerShake(15);
-      const scale = window.devicePixelRatio || 1;
-      renderer.spawnFloatingText(
-        canvas.width / (2 * scale),
-        canvas.height / (2 * scale) - 30,
-        'CRASHED!',
-        '#f43f5e',
-      );
+      const logicalSize = renderer.getLogicalSize();
+      if (logicalSize) {
+        renderer.spawnFloatingText(
+          logicalSize.width / 2,
+          logicalSize.height / 2 - 30,
+          'CRASHED!',
+          '#f43f5e',
+        );
+      }
       ui.showGameOverPanel(
         finalScore,
         sectorReached,
@@ -236,11 +244,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 6. Bind UI element updates & resizing
   const resizeGame = () => {
-    const parentWidth = canvas.parentElement
-      ? canvas.parentElement.clientWidth
-      : canvas.width;
-    const parentHeight = activeTab === ViewTab.COCKPIT ? 320 : 260;
-    renderer.setupResizing(parentWidth, parentHeight);
+    const parentWidth = canvas.parentElement?.clientWidth ?? 0;
+    renderer.setupResizing(parentWidth, canvas.clientHeight);
   };
   window.addEventListener('resize', resizeGame);
   resizeGame(); // Initial resize alignment
@@ -314,6 +319,7 @@ window.addEventListener('DOMContentLoaded', () => {
       engine.getSparkState().x,
       canvas,
     );
+    if (!coords) return;
     engine.acquireTether(coords.worldX, coords.worldY);
   };
 

@@ -1,4 +1,9 @@
 import { GenerationCursor, MapData, WallBounds } from '../types';
+import {
+  WORLD_VIEWPORT_CENTER,
+  WORLD_VIEWPORT_HEIGHT,
+  WORLD_WALL_MARGIN,
+} from '../constants';
 
 export class WorldGenerator {
   private static readonly STEP_RESOLUTION = 20;
@@ -23,7 +28,7 @@ export class WorldGenerator {
     guaranteeGaps: boolean,
     randomFn: () => number = Math.random,
   ): GenerationCursor {
-    const midY = 200;
+    const midY = WORLD_VIEWPORT_CENTER;
     const firstCoreIndex = map.cores.length;
 
     for (let i = 0; i < count; i++) {
@@ -78,11 +83,17 @@ export class WorldGenerator {
 
       map.upperWallSpline.push({
         x: cursor.nextWallX,
-        y: Math.max(10, closestNode.y - safetyEnvelope + waveUpper),
+        y: Math.max(
+          WORLD_WALL_MARGIN,
+          closestNode.y - safetyEnvelope + waveUpper,
+        ),
       });
       map.lowerWallSpline.push({
         x: cursor.nextWallX,
-        y: Math.min(390, closestNode.y + safetyEnvelope + waveLower),
+        y: Math.min(
+          WORLD_VIEWPORT_HEIGHT - WORLD_WALL_MARGIN,
+          closestNode.y + safetyEnvelope + waveLower,
+        ),
       });
 
       cursor.nextWallX += this.STEP_RESOLUTION;
@@ -93,7 +104,10 @@ export class WorldGenerator {
       const core = map.cores[i];
       const { upperY, lowerY } = this.getWallBoundaries(map, core.x);
       const minY = Math.max(core.radius, upperY + core.radius);
-      const maxY = Math.min(400 - core.radius, lowerY - core.radius);
+      const maxY = Math.min(
+        WORLD_VIEWPORT_HEIGHT - core.radius,
+        lowerY - core.radius,
+      );
       core.y = Math.max(minY, Math.min(maxY, core.y));
     }
 
