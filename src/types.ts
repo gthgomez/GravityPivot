@@ -27,6 +27,13 @@ export interface MapData {
   lowerWallSpline: SplinePoint[];
 }
 
+export interface GenerationCursor {
+  lastAnchorX: number;
+  nextWallX: number;
+  nextNodeId: number;
+  nextCoreId: number;
+}
+
 export interface WallBounds {
   upperY: number;
   lowerY: number;

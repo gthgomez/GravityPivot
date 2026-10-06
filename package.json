@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:browser": "playwright test",
+    "test:procgen:extended": "vitest run --config vitest.extended.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",

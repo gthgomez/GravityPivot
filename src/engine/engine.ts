@@ -8,6 +8,7 @@ import {
   CalibrationState,
   TrailBuffer,
   PivotNode,
+  GenerationCursor,
   RunContext,
 } from '../types';
 import { FlightState, GamePhase, DEFAULT_CONFIG, EPSILON } from '../constants';
@@ -50,6 +51,7 @@ export class GravityPivotEngine {
   private gamePhase: GamePhase = GamePhase.SPLASH;
   private runContext: RunContext = { mode: 'STANDARD' };
   private randomFn: () => number = Math.random;
+  private generationCursor: GenerationCursor = WorldGenerator.createCursor();
 
   public setRandomFn(fn: () => number): void {
     this.randomFn = fn;
@@ -175,11 +177,12 @@ export class GravityPivotEngine {
     this.mapData.cores = [];
     this.mapData.upperWallSpline = [];
     this.mapData.lowerWallSpline = [];
+    this.generationCursor = WorldGenerator.createCursor();
 
     const guaranteeGaps = this.calibration.safetyGapsEnabled;
     WorldGenerator.appendSegmentData(
       this.mapData,
-      0,
+      this.generationCursor,
       30,
       this.config,
       guaranteeGaps,
@@ -313,22 +316,14 @@ export class GravityPivotEngine {
     if (now - this.sectorCooldown < DEFAULT_CONFIG.sectorLeapCooldownMs) return;
     this.sectorCooldown = now;
 
+    const destinationX = this.spark.x + 1000;
+    this.ensureWorldThrough(destinationX + 3000);
     this.sectorIndex++;
-    this.spark.x += 1000;
+    this.spark.x = destinationX;
 
     // Reset trail buffer to prevent a giant leap line
     this.trailLength = 0;
     this.trailHead = 0;
-
-    const guaranteeGaps = this.calibration.safetyGapsEnabled;
-    WorldGenerator.appendSegmentData(
-      this.mapData,
-      this.spark.x + 100,
-      30,
-      this.config,
-      guaranteeGaps,
-      this.randomFn,
-    );
 
     this.spark.shield = this.spark.maxShield;
     this.callbacks.onShieldChanged(this.spark.shield, this.spark.maxShield);
@@ -340,6 +335,19 @@ export class GravityPivotEngine {
       `Hyper-jump complete! Sector ${this.sectorIndex} reached. Shields restored.`,
       'success',
     );
+  }
+
+  private ensureWorldThrough(targetX: number): void {
+    while (this.generationCursor.nextWallX <= targetX) {
+      WorldGenerator.appendSegmentData(
+        this.mapData,
+        this.generationCursor,
+        15,
+        this.config,
+        this.calibration.safetyGapsEnabled,
+        this.randomFn,
+      );
+    }
   }
 
   private updateCoresAndMagnetPull(): void {
@@ -526,21 +534,15 @@ export class GravityPivotEngine {
     if (this.gamePhase === GamePhase.CRASHED) return;
 
     // Infinite segment generation check
-    const totalSplineSize = this.mapData.upperWallSpline.length;
-    if (totalSplineSize > 0) {
-      const lastWallElement = this.mapData.upperWallSpline[totalSplineSize - 1];
-      if (this.spark.x + 3000 > lastWallElement.x) {
-        const guaranteeGaps = this.calibration.safetyGapsEnabled;
-        WorldGenerator.appendSegmentData(
-          this.mapData,
-          lastWallElement.x,
-          15,
-          this.config,
-          guaranteeGaps,
-          this.randomFn,
-        );
-        WorldGenerator.cullBehindCamera(this.mapData, this.spark.x - 500);
-      }
+    if (this.mapData.upperWallSpline.length > 0) {
+      this.ensureWorldThrough(this.spark.x + 3000);
+      WorldGenerator.cullBehindCamera(
+        this.mapData,
+        this.spark.x - 500,
+        this.spark.flightState === FlightState.ORBITAL
+          ? this.spark.orbitalNodeId
+          : undefined,
+      );
     }
 
     this.runDistance = Math.floor(this.spark.x / 10);

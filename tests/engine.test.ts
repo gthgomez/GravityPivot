@@ -168,6 +168,14 @@ describe('GravityPivotEngine', () => {
 
     expect(engine.getSectorIndex()).toBe(2);
     expect(callbacks.onSectorLeap).toHaveBeenCalledWith(2);
+    const map = engine.getMapData();
+    expect(map.upperWallSpline.length).toBe(map.lowerWallSpline.length);
+    for (let i = 1; i < map.upperWallSpline.length; i++) {
+      expect(map.upperWallSpline[i].x - map.upperWallSpline[i - 1].x).toBe(20);
+    }
+    expect(new Set(map.nodes.map((node) => node.id)).size).toBe(
+      map.nodes.length,
+    );
   });
 
   test('should trigger near-miss combo scoring & bonus application', () => {
