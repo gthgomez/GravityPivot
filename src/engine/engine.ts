@@ -1,5 +1,7 @@
 import { GameSaveState } from '../state/saveState';
 import { WorldGenerator } from '../world/generator';
+import { resolveRunRules, RunRules, UpgradeLevels } from './runRules';
+import { SeededRandom } from '../utils/seededRandom';
 import {
   SparkState,
   MapData,
@@ -30,7 +32,6 @@ export class GravityPivotEngine {
   private trailLength: number = 0;
   private orbitalNode: PivotNode | null = null;
 
-  private activeMaxTether: number = DEFAULT_CONFIG.maxTetherRadius;
   private activeMagnetRange: number = 40;
 
   private config: {
@@ -54,10 +55,8 @@ export class GravityPivotEngine {
   private generationCursor: GenerationCursor = WorldGenerator.createCursor();
   private nearMissEpisodeActive = false;
   private dangerProximityActive = false;
-
-  public setRandomFn(fn: () => number): void {
-    this.randomFn = fn;
-  }
+  private runRules!: RunRules;
+  private simulationTimeMs = 0;
 
   constructor(
     saveState: GameSaveState,
@@ -108,7 +107,7 @@ export class GravityPivotEngine {
   }
 
   public getConfig() {
-    return this.config;
+    return { ...this.config };
   }
 
   public getSectorIndex(): number {
@@ -128,31 +127,112 @@ export class GravityPivotEngine {
   }
 
   public updateCalibration(calibration: CalibrationState): void {
-    this.calibration = calibration;
+    if (this.runContext.mode === 'DAILY') return;
+    this.calibration = { ...calibration };
+    this.runRules = resolveRunRules(
+      { mode: 'STANDARD' },
+      this.ownedUpgrades(),
+      this.currentSettings(),
+    );
   }
 
   public syncUpgrades(): void {
-    const maxLevel = DEFAULT_CONFIG.maxUpgradeLevel;
+    if (this.runContext.mode === 'DAILY') return;
+    const rules = resolveRunRules(
+      { mode: 'STANDARD' },
+      this.ownedUpgrades(),
+      this.currentSettings(),
+    );
+    this.applyRunRules(rules);
+  }
 
-    // Note: shield level maps 1:1 to maxShield (no formula)
-    const newMax = Math.min(this.saveState.shieldLvl, maxLevel);
+  private ownedUpgrades(): UpgradeLevels {
+    return {
+      shield: this.saveState.shieldLvl,
+      magnet: this.saveState.magnetLvl,
+      tether: this.saveState.tetherLvl,
+    };
+  }
+
+  private currentSettings() {
+    return {
+      baseSpeed: this.config.baseSpeed,
+      subSteps: this.config.subSteps,
+      hazardProximityBuffer: this.config.hazardProximityBuffer,
+      calibration: { ...this.calibration },
+    };
+  }
+
+  private refreshStandardRules(): void {
+    if (this.runContext.mode === 'DAILY') return;
+    const rules = resolveRunRules(
+      { mode: 'STANDARD' },
+      this.ownedUpgrades(),
+      this.currentSettings(),
+    );
+    this.applyRunRules(rules);
+  }
+
+  private applyRunRules(rules: RunRules): void {
+    this.runRules = rules;
+    this.calibration = { ...rules.calibration };
+    this.config.baseSpeed = rules.config.baseSpeed;
+    this.config.maxTetherRadius = rules.config.maxTetherRadius;
+    this.config.subSteps = rules.config.subSteps;
+    this.config.hazardProximityBuffer = rules.config.hazardProximityBuffer;
+    this.activeMagnetRange = rules.config.magnetRange;
+
+    const newMax = rules.effectiveUpgrades.shield;
     const diff = newMax - this.spark.maxShield;
     if (diff > 0) {
       this.spark.shield += diff;
     }
     this.spark.maxShield = newMax;
-
-    this.activeMagnetRange =
-      40 + (Math.min(this.saveState.magnetLvl, maxLevel) - 1) * 35;
-    this.activeMaxTether =
-      180 + (Math.min(this.saveState.tetherLvl, maxLevel) - 1) * 35;
-    this.config.maxTetherRadius = this.activeMaxTether;
-
     this.callbacks.onShieldChanged(this.spark.shield, this.spark.maxShield);
+  }
+
+  public setSubSteps(value: number): boolean {
+    if (
+      this.runContext.mode === 'DAILY' ||
+      !Number.isInteger(value) ||
+      value < 1 ||
+      value > 10
+    ) {
+      return false;
+    }
+    this.config.subSteps = value;
+    this.refreshStandardRules();
+    return true;
+  }
+
+  public setHazardProximityBuffer(value: number): boolean {
+    if (
+      this.runContext.mode === 'DAILY' ||
+      !Number.isInteger(value) ||
+      value < 15 ||
+      value > 60
+    ) {
+      return false;
+    }
+    this.config.hazardProximityBuffer = value;
+    this.refreshStandardRules();
+    return true;
   }
 
   public initializeLevel(context: RunContext = this.runContext): void {
     this.runContext = { ...context };
+    this.runRules = resolveRunRules(
+      this.runContext,
+      this.ownedUpgrades(),
+      this.currentSettings(),
+    );
+    this.applyRunRules(this.runRules);
+    if (this.runRules.seed !== null) {
+      const random = new SeededRandom(this.runRules.seed);
+      this.randomFn = () => random.next();
+    } else {
+      this.randomFn = Math.random;
+    }
     this.spark.x = 100;
     this.spark.y = 200;
     this.spark.vx = this.config.baseSpeed;
@@ -170,6 +250,7 @@ export class GravityPivotEngine {
     this.trailLength = 0;
     this.orbitalNode = null;
     this.sectorIndex = 1;
+    this.simulationTimeMs = 0;
     this.sectorCooldown = -DEFAULT_CONFIG.sectorLeapCooldownMs;
     this.runDistance = 0;
     this.gamePhase = GamePhase.SPLASH;
@@ -204,27 +285,38 @@ export class GravityPivotEngine {
     let targetX = this.spark.x + 100;
     let targetY = this.spark.y;
 
-    if (worldX !== undefined && worldY !== undefined) {
-      targetX = worldX;
-      targetY = worldY;
+    const usePointerAim =
+      this.runContext.mode === 'STANDARD' &&
+      worldX !== undefined &&
+      worldY !== undefined;
+    if (usePointerAim) {
+      targetX = worldX ?? targetX;
+      targetY = worldY ?? targetY;
     }
 
     let targetNode: PivotNode | null = null;
     let minTetherDistance = Infinity;
 
     // Proximity lookup based on tap location first (if tapped close enough to a node)
-    let closestNodeToTap: any = null;
+    let closestNodeToTap: PivotNode | null = null;
     let tapMinDistanceSq = Infinity;
 
-    for (let i = 0; i < this.mapData.nodes.length; i++) {
-      const node = this.mapData.nodes[i];
-      const dx = node.x - targetX;
-      const dy = node.y - targetY;
-      const distSq = dx * dx + dy * dy;
-      if (distSq < tapMinDistanceSq && distSq < 6400) {
-        // 80^2 = 6400
-        tapMinDistanceSq = distSq;
-        closestNodeToTap = node;
+    if (usePointerAim) {
+      for (let i = 0; i < this.mapData.nodes.length; i++) {
+        const node = this.mapData.nodes[i];
+        const dx = node.x - targetX;
+        const dy = node.y - targetY;
+        const distSq = dx * dx + dy * dy;
+        if (
+          distSq < 6400 &&
+          (distSq < tapMinDistanceSq ||
+            (distSq === tapMinDistanceSq &&
+              node.id < (closestNodeToTap?.id ?? '')))
+        ) {
+          // 80^2 = 6400
+          tapMinDistanceSq = distSq;
+          closestNodeToTap = node;
+        }
       }
     }
 
@@ -247,7 +339,10 @@ export class GravityPivotEngine {
         const dx = node.x - this.spark.x;
         const dy = node.y - this.spark.y;
         const distSq = dx * dx + dy * dy;
-        if (distSq < minDistanceSq) {
+        if (
+          distSq < minDistanceSq ||
+          (distSq === minDistanceSq && node.id < (targetNode?.id ?? ''))
+        ) {
           minDistanceSq = distSq;
           targetNode = node;
         }
@@ -313,9 +408,13 @@ export class GravityPivotEngine {
   }
 
   private triggerSectorLeap(): void {
-    const now = performance.now();
-    if (now - this.sectorCooldown < DEFAULT_CONFIG.sectorLeapCooldownMs) return;
-    this.sectorCooldown = now;
+    if (
+      this.simulationTimeMs - this.sectorCooldown <
+      DEFAULT_CONFIG.sectorLeapCooldownMs
+    ) {
+      return;
+    }
+    this.sectorCooldown = this.simulationTimeMs;
     this.cancelNearMissEpisode();
 
     const destinationX = this.spark.x + 1000;
@@ -449,6 +548,8 @@ export class GravityPivotEngine {
 
   public physicsTick(dt: number): void {
     if (this.gamePhase !== GamePhase.FLYING) return;
+    if (!Number.isFinite(dt) || dt <= 0) return;
+    this.simulationTimeMs += dt * 1000;
 
     if (this.spark.shieldInvulnFrames > 0) {
       this.spark.shieldInvulnFrames--;
@@ -601,12 +702,22 @@ export class GravityPivotEngine {
     }
   }
 
-  public setBaseSpeed(speed: number): void {
+  public setBaseSpeed(speed: number): boolean {
+    if (
+      this.runContext.mode === 'DAILY' ||
+      !Number.isFinite(speed) ||
+      speed < 3 ||
+      speed > 15
+    ) {
+      return false;
+    }
     this.config.baseSpeed = speed;
     if (this.spark.flightState === FlightState.LINEAR) {
       const angle = Math.atan2(this.spark.vy, this.spark.vx);
       this.spark.vx = Math.cos(angle) * speed;
       this.spark.vy = Math.sin(angle) * speed;
     }
+    this.refreshStandardRules();
+    return true;
   }
 }

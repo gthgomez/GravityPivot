@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   ACTIVE_SKIN_ID: 'gravity_pivot_activeSkinId_v6',
   DAILY_BEST: 'gravity_pivot_dailyBest_v6',
   DAILY_BEST_DATE: 'gravity_pivot_dailyBestDate_v6',
+  DAILY_CHALLENGE_RECORDS: 'gravity_pivot_dailyChallengeRecords_v1',
 } as const;
 
 export class GameSaveState {
@@ -23,6 +24,7 @@ export class GameSaveState {
   public activeSkinId: number = 0;
   public dailyBest: number = 0;
   public dailyBestDate: string = '';
+  private dailyChallengeRecords: Record<string, number> = {};
 
   constructor() {
     this.load();
@@ -67,6 +69,9 @@ export class GameSaveState {
       const rawDailyBest = localStorage.getItem(STORAGE_KEYS.DAILY_BEST);
       const rawDailyBestDate = localStorage.getItem(
         STORAGE_KEYS.DAILY_BEST_DATE,
+      );
+      const rawDailyChallengeRecords = localStorage.getItem(
+        STORAGE_KEYS.DAILY_CHALLENGE_RECORDS,
       );
 
       const parsedCores = rawCores ? parseInt(rawCores, 10) : 0;
@@ -132,6 +137,25 @@ export class GameSaveState {
         this.dailyBest = 0;
         this.dailyBestDate = todayStr;
       }
+
+      if (rawDailyChallengeRecords) {
+        try {
+          const parsed = JSON.parse(rawDailyChallengeRecords);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            for (const [key, score] of Object.entries(parsed)) {
+              if (
+                /^v\d+:\d{4}-\d{2}-\d{2}$/.test(key) &&
+                Number.isSafeInteger(score) &&
+                (score as number) >= 0
+              ) {
+                this.dailyChallengeRecords[key] = score as number;
+              }
+            }
+          }
+        } catch {
+          this.dailyChallengeRecords = {};
+        }
+      }
     } catch (e) {
       // Retain defaults on security restriction exceptions
     }
@@ -164,5 +188,48 @@ export class GameSaveState {
       return true;
     }
     return false;
+  }
+
+  public getDailyChallengeBest(
+    challengeId: string,
+    rulesVersion: number,
+  ): number {
+    const key = this.dailyRecordKey(challengeId, rulesVersion);
+    return key ? (this.dailyChallengeRecords[key] ?? 0) : 0;
+  }
+
+  public updateDailyChallengeBest(
+    challengeId: string,
+    rulesVersion: number,
+    score: number,
+  ): boolean {
+    const key = this.dailyRecordKey(challengeId, rulesVersion);
+    if (!key || !Number.isFinite(score) || score < 0) return false;
+    const cleanScore = Math.floor(score);
+    if (cleanScore <= (this.dailyChallengeRecords[key] ?? 0)) return false;
+    this.dailyChallengeRecords[key] = cleanScore;
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.DAILY_CHALLENGE_RECORDS,
+        JSON.stringify(this.dailyChallengeRecords),
+      );
+    } catch {
+      // Keep the in-memory result if storage is unavailable.
+    }
+    return true;
+  }
+
+  private dailyRecordKey(
+    challengeId: string,
+    rulesVersion: number,
+  ): string | null {
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(challengeId) ||
+      !Number.isSafeInteger(rulesVersion) ||
+      rulesVersion < 1
+    ) {
+      return null;
+    }
+    return `v${rulesVersion}:${challengeId}`;
   }
 }

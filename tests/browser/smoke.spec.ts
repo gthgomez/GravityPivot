@@ -159,3 +159,44 @@ test('resized canvas keeps the full 400-unit world at its current DPR', async ({
   );
   await page.keyboard.up('Space');
 });
+
+test('Daily identity is common across timezones and owned upgrades', async ({
+  browser,
+}) => {
+  const observations: Array<{ challenge: string; best: string }> = [];
+  for (const [timezoneId, upgrades] of [
+    ['Pacific/Honolulu', ['1', '1', '1']],
+    ['Asia/Tokyo', ['10', '9', '8']],
+  ] as const) {
+    const context = await browser.newContext({ timezoneId });
+    const page = await context.newPage();
+    await page.addInitScript(
+      (levels) => {
+        localStorage.setItem('gravity_pivot_shieldLvl_v6', levels[0]);
+        localStorage.setItem('gravity_pivot_magnetLvl_v6', levels[1]);
+        localStorage.setItem('gravity_pivot_tetherLvl_v6', levels[2]);
+        localStorage.setItem('gravity_pivot_dailyBest_v6', '999');
+        localStorage.setItem(
+          'gravity_pivot_dailyBestDate_v6',
+          new Date().toDateString(),
+        );
+      },
+      [...upgrades],
+    );
+    await page.goto('http://127.0.0.1:4173/');
+    await page
+      .getByRole('button', { name: 'Activate Daily Seeded Run' })
+      .click();
+    const logText = await page.locator('#metric-log').innerText();
+    const challenge = logText.match(
+      /Daily challenge \d{4}-\d{2}-\d{2}, rules v\d+\. Tether auto-selects the nearest anchor\./,
+    )?.[0];
+    const best = await page.locator('#hud-personal-best').innerText();
+    observations.push({ challenge: challenge ?? '', best });
+    await context.close();
+  }
+
+  expect(observations[0].challenge).toMatch(/^Daily challenge/);
+  expect(observations[0].challenge).toBe(observations[1].challenge);
+  expect(observations.map(({ best }) => best)).toEqual(['00000', '00000']);
+});

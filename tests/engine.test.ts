@@ -293,7 +293,7 @@ describe('GravityPivotEngine', () => {
     for (const subSteps of [1, 2, 4, 8]) {
       engine.initializeLevel();
       engine.setGamePhase(GamePhase.FLYING);
-      engine.getConfig().subSteps = subSteps;
+      expect(engine.setSubSteps(subSteps)).toBe(true);
       map.upperWallSpline = [
         { x: 0, y: 0 },
         { x: 200, y: 0 },
@@ -522,6 +522,134 @@ describe('GravityPivotEngine', () => {
       expect.objectContaining({ context, score: 210 }),
     );
     expect(saveState.dailyBest).toBe(0);
+  });
+
+  test('Daily initial and extension geometry ignore upgrades and calibration', () => {
+    const context = {
+      mode: 'DAILY' as const,
+      challengeId: '2026-10-06',
+      rulesVersion: 1,
+    };
+    engine.initializeLevel(context);
+    const initial = JSON.stringify(engine.getMapData());
+    const config = engine.getConfig();
+    const extendMap = () => {
+      engine.initializeLevel(context);
+      engine.setGamePhase(GamePhase.FLYING);
+      const spark = engine.getSparkState() as any;
+      spark.x = 9999;
+      spark.vx = 10;
+      spark.vy = 0;
+      engine.physicsTick(1 / 60);
+      return JSON.stringify(engine.getMapData());
+    };
+    const replay = () => {
+      engine.initializeLevel(context);
+      engine.setGamePhase(GamePhase.FLYING);
+      const map = engine.getMapData() as any;
+      map.nodes = [{ id: 'daily-test-anchor', x: 180, y: 200, radius: 20 }];
+      const spark = engine.getSparkState() as any;
+      spark.x = 100;
+      spark.y = 200;
+      spark.vx = 6;
+      spark.vy = 0;
+      engine.acquireTether();
+      for (let i = 0; i < 12; i++) engine.physicsTick(1 / 60);
+      engine.releaseTether();
+      for (let i = 0; i < 10; i++) engine.physicsTick(1 / 60);
+      const state = engine.getSparkState();
+      return JSON.stringify({
+        x: state.x,
+        y: state.y,
+        vx: state.vx,
+        vy: state.vy,
+        score: state.score,
+        combo: state.combo,
+        collected: state.collectedInRun,
+      });
+    };
+    const extension = extendMap();
+    const firstReplay = replay();
+
+    saveState.shieldLvl = 10;
+    saveState.magnetLvl = 9;
+    saveState.tetherLvl = 8;
+    engine.syncUpgrades();
+    engine.updateCalibration({
+      subSteppingEnabled: false,
+      safetyGapsEnabled: false,
+      collinearFallbackEnabled: false,
+    });
+    expect(engine.setBaseSpeed(15)).toBe(false);
+    expect(engine.setSubSteps(1)).toBe(false);
+    expect(engine.setHazardProximityBuffer(60)).toBe(false);
+
+    engine.initializeLevel(context);
+    expect(JSON.stringify(engine.getMapData())).toBe(initial);
+    expect(extendMap()).toBe(extension);
+    expect(replay()).toBe(firstReplay);
+    expect(engine.getConfig()).toMatchObject(config);
+    expect(engine.getConfig().maxTetherRadius).toBe(180);
+    expect(engine.getSparkState().maxShield).toBe(1);
+  });
+
+  test('Daily anchor acquisition ignores pointer aim and breaks ties by stable id', () => {
+    engine.initializeLevel({
+      mode: 'DAILY',
+      challengeId: '2026-10-06',
+      rulesVersion: 1,
+    });
+    engine.setGamePhase(GamePhase.FLYING);
+    const map = engine.getMapData() as any;
+    map.nodes = [
+      { id: 'node_b', x: 200, y: 200, radius: 20 },
+      { id: 'node_a', x: 200, y: 200, radius: 20 },
+    ];
+    const spark = engine.getSparkState() as any;
+    spark.x = 100;
+    spark.y = 200;
+    spark.vx = 6;
+    spark.vy = 0;
+
+    engine.acquireTether(500, 350);
+
+    expect(engine.getSparkState().orbitalNodeId).toBe('node_a');
+    expect(callbacks.onTetherAcquired).toHaveBeenCalledWith('node_a');
+  });
+
+  test('getConfig returns a copy and validated setting setters reject invalid values', () => {
+    const configCopy = engine.getConfig();
+    configCopy.subSteps = 9;
+    configCopy.hazardProximityBuffer = 60;
+    expect(engine.getConfig().subSteps).toBe(4);
+    expect(engine.getConfig().hazardProximityBuffer).toBe(30);
+    expect(engine.setSubSteps(0)).toBe(false);
+    expect(engine.setSubSteps(11)).toBe(false);
+    expect(engine.setHazardProximityBuffer(Number.NaN)).toBe(false);
+    expect(engine.getConfig().subSteps).toBe(4);
+  });
+
+  test('sector cooldown advances on simulation time and freezes while paused', () => {
+    const spark = engine.getSparkState() as any;
+    spark.x = 9999;
+    spark.vx = 10;
+    spark.vy = 0;
+    engine.physicsTick(1 / 60);
+    expect(engine.getSectorIndex()).toBe(2);
+
+    spark.x = 19999;
+    engine.physicsTick(1 / 60);
+    expect(engine.getSectorIndex()).toBe(2);
+
+    engine.setGamePhase(GamePhase.PAUSED);
+    for (let i = 0; i < 180; i++) engine.physicsTick(1 / 60);
+    expect(engine.getSectorIndex()).toBe(2);
+    engine.setGamePhase(GamePhase.FLYING);
+    engine.physicsTick(1 / 60);
+    expect(engine.getSectorIndex()).toBe(2);
+
+    for (let i = 0; i < 120; i++) engine.physicsTick(1 / 60);
+    expect(engine.getSectorIndex()).toBe(3);
   });
 
   // --- Touch / pointer control path (tap-coordinate tether acquisition) ---

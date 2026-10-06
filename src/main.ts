@@ -2,6 +2,7 @@ import { GameSaveState } from './state/saveState';
 import { SynthManager } from './audio/synth';
 import { ParticleEngine } from './effects/particles';
 import { GravityPivotEngine } from './engine/engine';
+import { createDailyContext } from './engine/runRules';
 import { CanvasRenderer } from './renderer/canvasRenderer';
 import { UIController } from './ui/uiController';
 import { EngineCallbacks, CalibrationState, RunContext } from './types';
@@ -12,7 +13,6 @@ import {
   upgradeCost,
   SHIP_SKINS,
 } from './constants';
-import { SeededRandom } from './utils/seededRandom';
 import './style.css';
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -32,22 +32,20 @@ window.addEventListener('DOMContentLoaded', () => {
   const startRun = (isDaily: boolean) => {
     particles.clear();
     if (isDaily) {
-      const today = new Date();
-      const challengeId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      const seed =
-        today.getFullYear() * 10000 +
-        (today.getMonth() + 1) * 100 +
-        today.getDate();
-      const prng = new SeededRandom(seed);
-      engine.setRandomFn(() => prng.next());
-      runContext = { mode: 'DAILY', challengeId, rulesVersion: 1 };
+      const dailyContext = createDailyContext(new Date());
+      runContext = dailyContext;
       ui.appendLog(
-        `Engaging daily telemetry challenge. Seed: ${seed}`,
+        `Daily challenge ${dailyContext.challengeId}, rules v${dailyContext.rulesVersion}. Tether auto-selects the nearest anchor.`,
         'alert',
       );
-      ui.updatePersonalBest(saveState.dailyBest, true);
+      ui.updatePersonalBest(
+        saveState.getDailyChallengeBest(
+          dailyContext.challengeId,
+          dailyContext.rulesVersion,
+        ),
+        true,
+      );
     } else {
-      engine.setRandomFn(Math.random);
       runContext = { mode: 'STANDARD' };
       ui.appendLog('Standard navigation path loaded.', 'info');
       ui.updatePersonalBest(saveState.highScores[0]?.score ?? 0, false);
@@ -127,17 +125,32 @@ window.addEventListener('DOMContentLoaded', () => {
     },
     onRunEnded: (result) => {
       const { x, y, score: finalScore, sectorReached } = result;
-      const endedInDaily = result.context.mode === 'DAILY';
-      const previousBest = endedInDaily
-        ? saveState.dailyBest
+      const dailyContext =
+        result.context.mode === 'DAILY' ? result.context : null;
+      const endedInDaily = dailyContext !== null;
+      const previousBest = dailyContext
+        ? saveState.getDailyChallengeBest(
+            dailyContext.challengeId,
+            dailyContext.rulesVersion,
+          )
         : (saveState.highScores[0]?.score ?? 0);
       const isNewHighScore = !endedInDaily && finalScore > previousBest;
-      const isNewDailyBest = endedInDaily
-        ? saveState.updateDailyBest(finalScore)
+      const isNewDailyBest = dailyContext
+        ? saveState.updateDailyChallengeBest(
+            dailyContext.challengeId,
+            dailyContext.rulesVersion,
+            finalScore,
+          )
         : false;
       if (!endedInDaily) saveState.addHighScore(finalScore, sectorReached);
+      const dailyBest = dailyContext
+        ? saveState.getDailyChallengeBest(
+            dailyContext.challengeId,
+            dailyContext.rulesVersion,
+          )
+        : saveState.dailyBest;
       const bestScore = endedInDaily
-        ? saveState.dailyBest
+        ? dailyBest
         : (saveState.highScores[0]?.score ?? finalScore);
       synth.playExplosion();
       particles.spawn(x, y, '#f43f5e', 8, 30);
@@ -157,7 +170,7 @@ window.addEventListener('DOMContentLoaded', () => {
         isNewHighScore,
         bestScore,
         isNewDailyBest,
-        saveState.dailyBest,
+        dailyBest,
         endedInDaily,
       );
       if (!endedInDaily) ui.updateLeaderboardDisplay(saveState.highScores);
@@ -373,9 +386,14 @@ window.addEventListener('DOMContentLoaded', () => {
   if (sSpeed) {
     sSpeed.addEventListener('input', (e) => {
       const val = parseFloat((e.target as HTMLInputElement).value);
-      engine.setBaseSpeed(val);
+      const applied = engine.setBaseSpeed(val);
       const vSpeed = document.getElementById('val-speed');
-      if (vSpeed) vSpeed.textContent = val.toFixed(1);
+      if (vSpeed) {
+        vSpeed.textContent = applied
+          ? val.toFixed(1)
+          : engine.getConfig().baseSpeed.toFixed(1);
+      }
+      if (!applied) sSpeed.value = engine.getConfig().baseSpeed.toFixed(1);
     });
   }
 
@@ -385,9 +403,11 @@ window.addEventListener('DOMContentLoaded', () => {
   if (sSubsteps) {
     sSubsteps.addEventListener('input', (e) => {
       const val = parseInt((e.target as HTMLInputElement).value, 10);
-      engine.getConfig().subSteps = val;
+      const applied = engine.setSubSteps(val);
       const vSub = document.getElementById('val-substeps');
-      if (vSub) vSub.textContent = val.toString();
+      if (vSub)
+        vSub.textContent = String(applied ? val : engine.getConfig().subSteps);
+      if (!applied) sSubsteps.value = String(engine.getConfig().subSteps);
     });
   }
 
@@ -397,9 +417,11 @@ window.addEventListener('DOMContentLoaded', () => {
   if (sBuffer) {
     sBuffer.addEventListener('input', (e) => {
       const val = parseInt((e.target as HTMLInputElement).value, 10);
-      engine.getConfig().hazardProximityBuffer = val;
+      const applied = engine.setHazardProximityBuffer(val);
       const vBuf = document.getElementById('val-buffer');
-      if (vBuf) vBuf.textContent = `${val}px`;
+      const buffer = applied ? val : engine.getConfig().hazardProximityBuffer;
+      if (vBuf) vBuf.textContent = `${buffer}px`;
+      if (!applied) sBuffer.value = String(buffer);
     });
   }
 

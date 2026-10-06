@@ -144,4 +144,37 @@ describe('GameSaveState', () => {
     expect(state.dailyBest).toBe(0);
     expect(state.dailyBestDate).toBe(new Date().toDateString());
   });
+
+  test('stores Daily records by captured challenge and rules version', () => {
+    localStorage.setItem('gravity_pivot_dailyBest_v6', '999');
+    localStorage.setItem(
+      'gravity_pivot_dailyBestDate_v6',
+      new Date().toDateString(),
+    );
+    const state = new GameSaveState();
+
+    expect(state.getDailyChallengeBest('2026-10-06', 1)).toBe(0);
+    expect(state.updateDailyChallengeBest('2026-10-06', 1, 120)).toBe(true);
+    expect(state.updateDailyChallengeBest('2026-10-06', 1, 90)).toBe(false);
+    expect(state.updateDailyChallengeBest('2026-10-06', 2, 60)).toBe(true);
+    expect(state.updateDailyChallengeBest('2026-10-07', 1, 80)).toBe(true);
+    expect(state.updateDailyChallengeBest('2026-10-06', 1, 130)).toBe(true);
+    expect(state.getDailyChallengeBest('2026-10-07', 1)).toBe(80);
+
+    const loaded = new GameSaveState();
+    expect(loaded.getDailyChallengeBest('2026-10-06', 1)).toBe(130);
+    expect(loaded.getDailyChallengeBest('2026-10-06', 2)).toBe(60);
+    expect(loaded.getDailyChallengeBest('2026-10-07', 1)).toBe(80);
+    expect(localStorage.getItem('gravity_pivot_dailyBest_v6')).toBe('999');
+  });
+
+  test('rejects malformed identities and invalid results', () => {
+    const state = new GameSaveState();
+    expect(state.getDailyChallengeBest('not-a-date', 1)).toBe(0);
+    expect(state.updateDailyChallengeBest('2026-10-06', 0, 100)).toBe(false);
+    expect(state.updateDailyChallengeBest('2026-10-06', 1, Number.NaN)).toBe(
+      false,
+    );
+    expect(state.getDailyChallengeBest('2026-10-06', 1)).toBe(0);
+  });
 });
