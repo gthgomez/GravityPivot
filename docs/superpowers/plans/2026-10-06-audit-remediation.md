@@ -229,7 +229,8 @@ Split into two PRs if pointer and accessibility review become substantial. **Mod
 - [x] Add player settings for sound and motion. Default to system reduced-motion preference and allow an explicit override; suppress shake and large transitions and reduce decorative particles without weakening essential tether/collision signals.
 - [x] Provide visible focus, correct tab selection semantics, labelled controls, and pause/game-over focus entry/restoration. Keep essential flight text at least 14 CSS px and primary touch controls at least 44×44 CSS px. Avoid continuous score announcements; announce launch/pause/crash state changes where useful.
 - [x] Check keyboard-only launch → playfield → pause → resume → crash → retry, narrow viewports, mute persistence, and reduced motion. Add WebKit browser journeys.
-- [ ] Check 200% browser zoom and perform one actual mobile-device play session before claiming mobile qualification.
+- [x] Exercise a 200% zoom-equivalent half-width viewport in Chromium, mobile Chromium emulation, and WebKit; retain the full world view and primary control sizing.
+- [ ] Check actual browser zoom and perform one actual mobile-device play session before claiming mobile qualification.
 
 **Gate:** Inputs have a cancellation policy; player controls communicate player choices; keyboard focus and motion preferences work through complete journeys.
 

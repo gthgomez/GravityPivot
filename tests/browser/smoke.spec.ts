@@ -26,7 +26,6 @@ test('keyboard tether input acquires and releases an anchor', async ({
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
-  await page.waitForTimeout(350);
 
   await page.keyboard.down('Space');
   await expect(page.locator('#metric-log')).toContainText(
@@ -37,14 +36,22 @@ test('keyboard tether input acquires and releases an anchor', async ({
   );
   await page.keyboard.up('Space');
   await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
+});
+
+test('mouse pointer independently acquires and releases a Daily tether', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
   const box = await page.locator('#game-canvas').boundingBox();
   if (!box) throw new Error('Canvas has no visible bounds');
-  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await page.mouse.down();
-  await expect(page.locator('#metric-log')).toContainText(
+  await expect(page.locator('#metric-log .mono').last()).toContainText(
     'Tether secure on orbit node',
   );
   await page.mouse.up();
+  await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
 });
 
 test('Space on a focused launch button keeps native button activation', async ({
@@ -72,7 +79,6 @@ test('touch input acquires and releases an anchor', async ({
 
   await page.goto('/');
   await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
-  await page.waitForTimeout(350);
 
   const canvas = await page.locator('#game-canvas').boundingBox();
   if (!canvas) throw new Error('Canvas has no visible bounds');
@@ -130,10 +136,7 @@ test('synthetic visibility events pause and resume only on explicit action', asy
   page,
 }) => {
   await page.goto('/');
-  await page
-    .getByRole('button', { name: 'Activate Ship Fusion Engines' })
-    .click();
-  await page.waitForTimeout(350);
+  await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
   await page.keyboard.down('Space');
   await expect(page.locator('#metric-log')).toContainText(
     'Tether secure on orbit node',
@@ -202,12 +205,31 @@ test('resized canvas keeps the full 400-unit world at its current DPR', async ({
   expect(viewport.cssHeight).toBe(300);
 
   await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
-  await page.waitForTimeout(250);
   await page.keyboard.down('Space');
   await expect(page.locator('#metric-log')).toContainText(
     'Tether secure on orbit node',
   );
   await page.keyboard.up('Space');
+});
+
+test('half-width viewport keeps primary controls usable at a 200% zoom equivalent', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 640, height: 360 });
+  await page.goto('/');
+  await expect(page.locator('#game-canvas')).toBeVisible();
+  await expect(page.locator('#btn-play')).toBeVisible();
+
+  const layout = await page.evaluate(() => ({
+    viewportWidth: document.documentElement.clientWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    canvas: document.querySelector('#game-canvas')?.getBoundingClientRect(),
+    reset: document.querySelector('#btn-play')?.getBoundingClientRect(),
+  }));
+  expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+  expect(layout.canvas?.width).toBeGreaterThan(0);
+  expect(layout.reset?.width).toBeGreaterThanOrEqual(44);
+  expect(layout.reset?.height).toBeGreaterThanOrEqual(44);
 });
 
 test('Daily identity is common across timezones and owned upgrades', async ({
@@ -260,19 +282,8 @@ test('Daily crash preserves Standard scores and retry starts a fresh run', async
   );
   const pageErrors: string[] = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.clock.install({ time: new Date('2026-01-01T12:00:00.000Z') });
   await page.addInitScript(() => {
-    const NativeDate = Date;
-    class FixedDate extends NativeDate {
-      constructor(value?: string | number) {
-        if (value === undefined) super('2026-01-01T12:00:00.000Z');
-        else super(value);
-      }
-
-      static now(): number {
-        return new NativeDate('2026-01-01T12:00:00.000Z').valueOf();
-      }
-    }
-    Object.defineProperty(window, 'Date', { value: FixedDate });
     localStorage.setItem(
       'gravity_pivot_save',
       JSON.stringify({
@@ -289,7 +300,7 @@ test('Daily crash preserves Standard scores and retry starts a fresh run', async
   await page.goto('/');
   await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
 
-  // This fixed Daily seed crashes after a short, repeatable hold/release route.
+  // Advance browser time, including requestAnimationFrame, through the fixed route.
   for (let pulse = 0; pulse < 6; pulse++) {
     if (
       (await page.locator('#game-over-panel').getAttribute('aria-hidden')) ===
@@ -298,9 +309,9 @@ test('Daily crash preserves Standard scores and retry starts a fresh run', async
       break;
     }
     await page.keyboard.down('Space');
-    await page.waitForTimeout(350);
+    await page.clock.runFor(350);
     await page.keyboard.up('Space');
-    await page.waitForTimeout(500);
+    await page.clock.runFor(500);
   }
   await expect(page.locator('#game-over-panel')).toHaveAttribute(
     'aria-hidden',
@@ -408,7 +419,6 @@ test('captured pointer release outside the canvas releases the tether', async ({
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
-  await page.waitForTimeout(250);
   const box = await page.locator('#game-canvas').boundingBox();
   if (!box) throw new Error('Canvas has no visible bounds');
   await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
@@ -424,7 +434,6 @@ test('captured pointer release outside the canvas releases the tether', async ({
 test('injected pointer cancellation releases safely', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
-  await page.waitForTimeout(250);
   const box = await page.locator('#game-canvas').boundingBox();
   if (!box) throw new Error('Canvas has no visible bounds');
   await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
@@ -478,7 +487,6 @@ test('keyboard release does not cancel an independently held pointer', async ({
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
-  await page.waitForTimeout(250);
   const box = await page.locator('#game-canvas').boundingBox();
   if (!box) throw new Error('Canvas has no visible bounds');
   await page.keyboard.down('Space');
@@ -500,7 +508,6 @@ test('a synthetic secondary pointer cannot steal the primary tether hold', async
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
-  await page.waitForTimeout(250);
   const box = await page.locator('#game-canvas').boundingBox();
   if (!box) throw new Error('Canvas has no visible bounds');
   await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
@@ -523,7 +530,6 @@ test('navigating away while held cancels tether before pausing', async ({
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
-  await page.waitForTimeout(250);
   const box = await page.locator('#game-canvas').boundingBox();
   if (!box) throw new Error('Canvas has no visible bounds');
   await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
