@@ -59,6 +59,12 @@ describe('GravityPivotEngine', () => {
     expect(engine.getRunDistance()).toBe(0);
   });
 
+  test('initializing a run does not report a core collection', () => {
+    engine.initializeLevel();
+
+    expect(callbacks.onCoreCollected).not.toHaveBeenCalled();
+  });
+
   test('should move spark in linear flight during tick', () => {
     const initialX = engine.getSparkState().x;
     const initialY = engine.getSparkState().y;

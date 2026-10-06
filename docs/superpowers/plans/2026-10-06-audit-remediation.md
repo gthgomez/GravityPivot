@@ -14,6 +14,8 @@
 
 The original local feature checkout was at `2afa0e8`, while a fresh fetch confirmed `origin/main` is exactly the audited commit. Implementation now uses an isolated worktree from that SHA, which contains the expected root `AGENTS.md`; the old feature checkout remains untouched. Reconcile any unique feature-branch changes before closing the campaign.
 
+Production browser execution also exposed a startup failure not listed in the audit: engine construction reported a fake core collection before the engine binding was initialized, triggering a temporal-dead-zone exception and preventing the launch handlers from being attached. Delivery 2 now includes a regression and removes this reset-as-collection event.
+
 The plan is the only repository change in this planning session. Verification commands below are execution requirements, not reports of passing checks. Live GitHub settings, open work, security features, and branch contents must be read again at execution time.
 
 ## Global constraints
@@ -63,10 +65,10 @@ Implement sequentially initially. The table expresses technical dependencies; it
 
 **Files:** Read `AGENTS.md` if present, `docs/agent/AGENTS.md` if present, `package.json`, `.nvmrc`, CI, engine, generator, main, and existing tests. Preserve this planning document across any checkout change.
 
-- [ ] Read current remote `main`, open PRs/issues, and repository settings; compare current head to the audited head and inspected local head. Do not overwrite a dirty checkout or reuse a stale feature branch for implementation.
-- [ ] Make a fresh implementation branch from the agreed current base, using an isolated checkout when needed.
-- [ ] Record which GP findings remain, which are already fixed, and which need browser reproduction. Reproduce the existing gameplay defects on the unmodified build; capture seed, viewport, DPR, and browser where relevant.
-- [ ] Run `npm ci`, `npm run typecheck`, `npm test`, and `npm run build` on Node 24. Report actual counts and failures; do not assume exactly 90 tests still exist.
+- [x] Read current remote `main`, open PRs/issues, and repository settings; compare current head to the audited head and inspected local head. Do not overwrite a dirty checkout or reuse a stale feature branch for implementation.
+- [x] Make a fresh implementation branch from the agreed current base, using an isolated checkout when needed.
+- [x] Record which GP findings remain, which are already fixed, and which need browser reproduction. Reproduce the existing gameplay defects on the unmodified build; capture seed, viewport, DPR, and browser where relevant.
+- [x] Run `npm ci`, `npm run typecheck`, `npm test`, and `npm run build` on Node 24. Report actual counts and failures; do not assume exactly 90 tests still exist.
 
 **Gate:** Every P1 has a current reproduction or a documented source condition to exercise. Existing failures have an owner before changes begin.
 
@@ -74,11 +76,11 @@ Implement sequentially initially. The table expresses technical dependencies; it
 
 **Modify:** `package.json`, `package-lock.json`, `.nvmrc`, `.github/workflows/ci.yml`, `README.md`, applicable repository instruction file. **Create:** `biome.json`; root `AGENTS.md` only if missing after reconciliation.
 
-- [ ] Align Node declarations to the global constraint. Add a pinned compatible Biome release without changing Vite, Vitest, or TypeScript majors.
-- [ ] Add `format`, `format:check`, `lint`, and `verify`. Define `verify` as format check → lint → typecheck → unit tests → production build. Scope formatting to supported project files and exclude generated assets and outputs.
-- [ ] Apply only the mechanical formatting needed for the initial gate; clearly identify that diff. If it obscures substantive changes, split formatting into its own PR.
-- [ ] Make README, root `AGENTS.md`, and CI use `npm run verify`. Retain useful Canvas guards, persistence migration rules, and the prohibition on external engine mutation. Remove stale instruction duplication only after preserving its content.
-- [ ] Set the CI check display name to `verify`; preserve pinned actions and existing permissions. Run a clean install, `npm run verify`, and preview the production build.
+- [x] Align Node declarations to the global constraint. Add a pinned compatible Biome release without changing Vite, Vitest, or TypeScript majors.
+- [x] Add `format`, `format:check`, `lint`, and `verify`. Define `verify` as format check → lint → typecheck → unit tests → production build. Scope formatting to supported project files and exclude generated assets and outputs.
+- [x] Apply only the mechanical formatting needed for the initial gate; clearly identify that diff. If it obscures substantive changes, split formatting into its own PR.
+- [x] Make README, root `AGENTS.md`, and CI use `npm run verify`. Retain useful Canvas guards, persistence migration rules, and the prohibition on external engine mutation. Remove stale instruction duplication only after preserving its content.
+- [x] Set the CI check display name to `verify`; preserve pinned actions and existing permissions. Run a clean install, `npm run verify`, and preview the production build.
 
 **Gate:** A fresh checkout can reproduce CI with documented commands. Limit this foundation work to one small delivery; tooling must not consume the gameplay campaign.
 
@@ -86,11 +88,11 @@ Implement sequentially initially. The table expresses technical dependencies; it
 
 **Create:** `playwright.config.ts`, `tests/browser/smoke.spec.ts`. **Modify:** scripts/lockfile, `.gitignore`, CI, README test claims; Vite/Vitest configuration if needed to exclude browser specs from unit discovery.
 
-- [ ] Add `@playwright/test` and `test:browser`; serve the built application with `vite preview` on a fixed strict port. Test the production bundle.
-- [ ] Start with desktop Chromium and a mobile Chromium project with touch enabled. Exercise page load, real Canvas initialization, launch, and tether/release through browser events. Assert no uncaught page errors.
-- [ ] Add stable observations only where the public UI cannot establish gameplay state. Prefer read-only snapshots; any deterministic fixture injection must be explicitly enabled for testing and absent from the ordinary launch path. Browser tests must operate controls through events rather than invoking engine methods.
-- [ ] Add a separate CI job named `browser-smoke`, install its browser, build, and run tests. Retain traces/screenshots on failure and exclude outputs from git.
-- [ ] Rename mocked DOM/WebAudio and direct engine input coverage accurately. Add regressions alongside each following fix; do not require knowingly failing P1 scenarios in CI before their repairs land.
+- [x] Add `@playwright/test` and `test:browser`; serve the built application with `vite preview` on a fixed strict port. Test the production bundle.
+- [x] Start with desktop Chromium and a mobile Chromium project with touch enabled. Exercise page load, real Canvas initialization, launch, and tether/release through browser events. Assert no uncaught page errors.
+- [x] Add stable observations only where the public UI cannot establish gameplay state. Prefer read-only snapshots; any deterministic fixture injection must be explicitly enabled for testing and absent from the ordinary launch path. Browser tests must operate controls through events rather than invoking engine methods.
+- [x] Add a separate CI job named `browser-smoke`, install its browser, build, and run tests. Retain traces/screenshots on failure and exclude outputs from git.
+- [x] Rename mocked DOM/WebAudio and direct engine input coverage accurately. Add regressions alongside each following fix; do not require knowingly failing P1 scenarios in CI before their repairs land.
 
 **Gate:** Initial real-browser tests pass and failures provide usable evidence. Touch emulation is not a claim of actual iOS or Android qualification.
 

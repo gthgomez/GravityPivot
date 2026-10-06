@@ -18,6 +18,7 @@
 Never mark work complete without running the canonical gate:
 ```
 npm run verify      # format, lint, typecheck, tests, and production build
+npm run test:browser # required for rendering, input, lifecycle, or save changes
 ```
 
 ---

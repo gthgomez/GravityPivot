@@ -47,7 +47,12 @@ npm run dev
 ```bash
 # Run formatting, lint, typecheck, unit tests, and the production build
 npm run verify
+
+# Run the production app in desktop and touch-enabled Chromium
+npm run test:browser
 ```
+
+Install the local browser once with `npx playwright install chromium`. CI installs Chromium automatically.
 
 ### Build
 ```bash

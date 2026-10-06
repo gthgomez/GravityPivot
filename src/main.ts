@@ -48,6 +48,10 @@ window.addEventListener('DOMContentLoaded', () => {
       ui.updatePersonalBest(saveState.highScores[0]?.score ?? 0, false);
     }
     engine.initializeLevel();
+    ui.updateCoreCount(
+      engine.getSparkState().collectedInRun,
+      saveState.totalCores,
+    );
     engine.setGamePhase(GamePhase.FLYING);
     ui.showLaunchOverlay(false);
     synth.init();
@@ -490,6 +494,10 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     if (e.code === 'KeyR') {
       engine.initializeLevel();
+      ui.updateCoreCount(
+        engine.getSparkState().collectedInRun,
+        saveState.totalCores,
+      );
       ui.showLaunchOverlay(true);
       ui.showPauseOverlay(false);
     }

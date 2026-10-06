@@ -185,12 +185,6 @@ export class GravityPivotEngine {
 
     this.callbacks.onShieldChanged(this.spark.shield, this.spark.maxShield);
     this.callbacks.onScoreChanged(this.spark.score, this.spark.combo);
-    this.callbacks.onCoreCollected(
-      this.spark.collectedInRun,
-      this.saveState.totalCores,
-      this.spark.x,
-      this.spark.y,
-    );
     this.callbacks.onLog(
       'Fusion engines disengaged. Cockpit ready.',
       'success',
