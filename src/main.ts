@@ -30,6 +30,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let runContext: RunContext = { mode: 'STANDARD' };
 
   const startRun = (isDaily: boolean) => {
+    particles.clear();
     if (isDaily) {
       const today = new Date();
       const challengeId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -222,9 +223,9 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     } else {
       accumulator = 0;
-      // Still update particles on splash/pause/game-over screens
-      particles.update();
     }
+
+    particles.update(elapsed);
 
     // Always draw current state
     const spark = engine.getSparkState();
@@ -277,6 +278,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   function resetToSplash(): void {
+    particles.clear();
     engine.releaseTether();
     engine.initializeLevel(runContext);
     ui.updateCoreCount(

@@ -66,12 +66,14 @@ export class ParticleEngine {
     }
   }
 
-  public update(): void {
+  public update(elapsedSeconds = 1 / 60): void {
+    const frameScale = Math.max(0, elapsedSeconds) * 60;
+    if (frameScale === 0) return;
     for (let i = 0; i < this.activeCount; i++) {
       const p = this.pool[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.alpha -= p.decay;
+      p.x += p.vx * frameScale;
+      p.y += p.vy * frameScale;
+      p.alpha -= p.decay * frameScale;
 
       if (p.alpha <= 0) {
         // Swap-and-Pop garbage-free removal
@@ -82,6 +84,10 @@ export class ParticleEngine {
         i--;
       }
     }
+  }
+
+  public clear(): void {
+    this.activeCount = 0;
   }
 
   public draw(ctx: CanvasRenderingContext2D, cameraOffsetX: number): void {
