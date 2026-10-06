@@ -34,7 +34,7 @@ describe('GravityPivotEngine', () => {
       onNearMiss: vi.fn(),
       onDangerProximity: vi.fn(),
       onShieldBounce: vi.fn(),
-      onCrash: vi.fn(),
+      onRunEnded: vi.fn(),
       onTetherAcquired: vi.fn(),
       onTetherReleased: vi.fn(),
       onTelemetryUpdate: vi.fn(),
@@ -155,7 +155,7 @@ describe('GravityPivotEngine', () => {
 
     expect(engine.getSparkState().shield).toBe(0);
     expect(engine.getGamePhase()).toBe(GamePhase.CRASHED);
-    expect(callbacks.onCrash).toHaveBeenCalled();
+    expect(callbacks.onRunEnded).toHaveBeenCalledTimes(1);
   });
 
   test('should trigger sector leap when crossing sectorDistance boundary', () => {
@@ -289,7 +289,7 @@ describe('GravityPivotEngine', () => {
     expect(spark.shield).toBe(2);
   });
 
-  test('should trigger onCrash callback with finalScore and isNewHighScore details', () => {
+  test('should emit a Standard run result when the run crashes', () => {
     const spark = engine.getSparkState() as any;
     spark.shield = 1;
     spark.score = 150.5;
@@ -309,15 +309,68 @@ describe('GravityPivotEngine', () => {
 
     engine.physicsTick(1 / 60);
 
-    expect(callbacks.onCrash).toHaveBeenCalledWith(
-      expect.any(Number),
-      expect.any(Number),
-      150,
-      1,
-      true,
-      true,
-      150,
+    expect(callbacks.onRunEnded).toHaveBeenCalledWith({
+      context: { mode: 'STANDARD' },
+      score: 150,
+      sectorReached: 1,
+      collectedCores: 0,
+      x: expect.any(Number),
+      y: expect.any(Number),
+    });
+  });
+
+  test('standard run crashes do not update the daily best', () => {
+    const spark = engine.getSparkState() as any;
+    spark.shield = 1;
+    spark.score = 150;
+
+    const map = engine.getMapData() as any;
+    map.upperWallSpline = [
+      { x: 0, y: 150 },
+      { x: 100, y: 150 },
+    ];
+    map.lowerWallSpline = [
+      { x: 0, y: 350 },
+      { x: 100, y: 350 },
+    ];
+    spark.x = 100;
+    spark.y = 120;
+
+    engine.physicsTick(1 / 60);
+
+    expect(saveState.dailyBest).toBe(0);
+    expect(callbacks.onRunEnded).toHaveBeenCalledTimes(1);
+  });
+
+  test('Daily run results retain their challenge identity', () => {
+    const context = {
+      mode: 'DAILY' as const,
+      challengeId: '2026-10-06',
+      rulesVersion: 1,
+    };
+    engine.initializeLevel(context);
+    engine.setGamePhase(GamePhase.FLYING);
+    const spark = engine.getSparkState() as any;
+    spark.shield = 1;
+    spark.score = 210;
+    spark.x = 100;
+    spark.y = 120;
+    const map = engine.getMapData() as any;
+    map.upperWallSpline = [
+      { x: 0, y: 150 },
+      { x: 100, y: 150 },
+    ];
+    map.lowerWallSpline = [
+      { x: 0, y: 350 },
+      { x: 100, y: 350 },
+    ];
+
+    engine.physicsTick(1 / 60);
+
+    expect(callbacks.onRunEnded).toHaveBeenCalledWith(
+      expect.objectContaining({ context, score: 210 }),
     );
+    expect(saveState.dailyBest).toBe(0);
   });
 
   // --- Touch / pointer control path (tap-coordinate tether acquisition) ---

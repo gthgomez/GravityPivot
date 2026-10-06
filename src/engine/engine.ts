@@ -8,6 +8,7 @@ import {
   CalibrationState,
   TrailBuffer,
   PivotNode,
+  RunContext,
 } from '../types';
 import { FlightState, GamePhase, DEFAULT_CONFIG, EPSILON } from '../constants';
 
@@ -47,6 +48,7 @@ export class GravityPivotEngine {
   private sectorCooldown: number = 0;
   private runDistance: number = 0;
   private gamePhase: GamePhase = GamePhase.SPLASH;
+  private runContext: RunContext = { mode: 'STANDARD' };
   private randomFn: () => number = Math.random;
 
   public setRandomFn(fn: () => number): void {
@@ -146,7 +148,8 @@ export class GravityPivotEngine {
     this.callbacks.onShieldChanged(this.spark.shield, this.spark.maxShield);
   }
 
-  public initializeLevel(): void {
+  public initializeLevel(context: RunContext = this.runContext): void {
+    this.runContext = { ...context };
     this.spark.x = 100;
     this.spark.y = 200;
     this.spark.vx = this.config.baseSpeed;
@@ -417,6 +420,8 @@ export class GravityPivotEngine {
   }
 
   public physicsTick(dt: number): void {
+    if (this.gamePhase !== GamePhase.FLYING) return;
+
     if (this.spark.shieldInvulnFrames > 0) {
       this.spark.shieldInvulnFrames--;
     }
@@ -478,22 +483,14 @@ export class GravityPivotEngine {
 
           if (this.spark.shield <= 0) {
             this.gamePhase = GamePhase.CRASHED;
-            const isNewHighScore =
-              this.saveState.highScores.length === 0 ||
-              Math.floor(this.spark.score) > this.saveState.highScores[0].score;
-            this.saveState.addHighScore(this.spark.score, this.sectorIndex);
-            const isNewDailyBest = this.saveState.updateDailyBest(
-              this.spark.score,
-            );
-            this.callbacks.onCrash(
-              this.spark.x,
-              this.spark.y,
-              Math.floor(this.spark.score),
-              this.sectorIndex,
-              isNewHighScore,
-              isNewDailyBest,
-              this.saveState.dailyBest,
-            );
+            this.callbacks.onRunEnded({
+              context: { ...this.runContext },
+              score: Math.floor(this.spark.score),
+              sectorReached: this.sectorIndex,
+              collectedCores: this.spark.collectedInRun,
+              x: this.spark.x,
+              y: this.spark.y,
+            });
             this.callbacks.onLog(
               'Shield array collapsed! Space vessel destroyed.',
               'alert',
@@ -525,6 +522,8 @@ export class GravityPivotEngine {
       this.updateCoresAndMagnetPull();
       this.handleNearMisses(this.spark.x, this.spark.y);
     }
+
+    if (this.gamePhase === GamePhase.CRASHED) return;
 
     // Infinite segment generation check
     const totalSplineSize = this.mapData.upperWallSpline.length;

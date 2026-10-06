@@ -69,6 +69,19 @@ export interface CalibrationState {
   collinearFallbackEnabled: boolean;
 }
 
+export type RunContext =
+  | { mode: 'STANDARD' }
+  | { mode: 'DAILY'; challengeId: string; rulesVersion: number };
+
+export interface RunResult {
+  context: RunContext;
+  score: number;
+  sectorReached: number;
+  collectedCores: number;
+  x: number;
+  y: number;
+}
+
 export interface EngineCallbacks {
   onShieldChanged(current: number, max: number): void;
   onScoreChanged(score: number, combo: number): void;
@@ -82,15 +95,7 @@ export interface EngineCallbacks {
   onNearMiss(combo: number, x: number, y: number): void;
   onDangerProximity(active: boolean): void;
   onShieldBounce(shield: number, x: number, y: number): void;
-  onCrash(
-    x: number,
-    y: number,
-    finalScore: number,
-    sectorReached: number,
-    isNewHighScore: boolean,
-    isNewDailyBest: boolean,
-    dailyBest: number,
-  ): void;
+  onRunEnded(result: RunResult): void;
   onTetherAcquired(nodeId: string): void;
   onTetherReleased(): void;
   onTelemetryUpdate(

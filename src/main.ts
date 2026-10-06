@@ -4,7 +4,7 @@ import { ParticleEngine } from './effects/particles';
 import { GravityPivotEngine } from './engine/engine';
 import { CanvasRenderer } from './renderer/canvasRenderer';
 import { UIController } from './ui/uiController';
-import { EngineCallbacks, CalibrationState } from './types';
+import { EngineCallbacks, CalibrationState, RunContext } from './types';
 import {
   GamePhase,
   ViewTab,
@@ -27,16 +27,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
   let activeTab = ViewTab.COCKPIT;
   let isDailyMode = false;
+  let runContext: RunContext = { mode: 'STANDARD' };
 
   const startRun = (isDaily: boolean) => {
     if (isDaily) {
       const today = new Date();
+      const challengeId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       const seed =
         today.getFullYear() * 10000 +
         (today.getMonth() + 1) * 100 +
         today.getDate();
       const prng = new SeededRandom(seed);
       engine.setRandomFn(() => prng.next());
+      runContext = { mode: 'DAILY', challengeId, rulesVersion: 1 };
       ui.appendLog(
         `Engaging daily telemetry challenge. Seed: ${seed}`,
         'alert',
@@ -44,10 +47,11 @@ window.addEventListener('DOMContentLoaded', () => {
       ui.updatePersonalBest(saveState.dailyBest, true);
     } else {
       engine.setRandomFn(Math.random);
+      runContext = { mode: 'STANDARD' };
       ui.appendLog('Standard navigation path loaded.', 'info');
       ui.updatePersonalBest(saveState.highScores[0]?.score ?? 0, false);
     }
-    engine.initializeLevel();
+    engine.initializeLevel(runContext);
     ui.updateCoreCount(
       engine.getSparkState().collectedInRun,
       saveState.totalCores,
@@ -111,15 +115,20 @@ window.addEventListener('DOMContentLoaded', () => {
       const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
       renderer.spawnFloatingText(x + cameraOffsetX, y, '-1 SHIELD', '#f43f5e');
     },
-    onCrash: (
-      x,
-      y,
-      finalScore,
-      sectorReached,
-      isNewHighScore,
-      isNewDailyBest,
-      dailyBest,
-    ) => {
+    onRunEnded: (result) => {
+      const { x, y, score: finalScore, sectorReached } = result;
+      const endedInDaily = result.context.mode === 'DAILY';
+      const previousBest = endedInDaily
+        ? saveState.dailyBest
+        : (saveState.highScores[0]?.score ?? 0);
+      const isNewHighScore = !endedInDaily && finalScore > previousBest;
+      const isNewDailyBest = endedInDaily
+        ? saveState.updateDailyBest(finalScore)
+        : false;
+      if (!endedInDaily) saveState.addHighScore(finalScore, sectorReached);
+      const bestScore = endedInDaily
+        ? saveState.dailyBest
+        : (saveState.highScores[0]?.score ?? finalScore);
       synth.playExplosion();
       particles.spawn(x, y, '#f43f5e', 8, 30);
       renderer.triggerShake(15);
@@ -130,18 +139,17 @@ window.addEventListener('DOMContentLoaded', () => {
         'CRASHED!',
         '#f43f5e',
       );
-      const bestScore = saveState.highScores[0]?.score ?? finalScore;
       ui.showGameOverPanel(
         finalScore,
         sectorReached,
         isNewHighScore,
         bestScore,
         isNewDailyBest,
-        dailyBest,
-        isDailyMode,
+        saveState.dailyBest,
+        endedInDaily,
       );
-      ui.updateLeaderboardDisplay(saveState.highScores);
-      ui.updatePersonalBest(isDailyMode ? dailyBest : bestScore, isDailyMode);
+      if (!endedInDaily) ui.updateLeaderboardDisplay(saveState.highScores);
+      ui.updatePersonalBest(bestScore, endedInDaily);
     },
     onTetherAcquired: () => {
       synth.playPing();
@@ -493,7 +501,7 @@ window.addEventListener('DOMContentLoaded', () => {
       engine.acquireTether();
     }
     if (e.code === 'KeyR') {
-      engine.initializeLevel();
+      engine.initializeLevel(runContext);
       ui.updateCoreCount(
         engine.getSparkState().collectedInRun,
         saveState.totalCores,
