@@ -12,12 +12,12 @@
 - **Runtime**: Vite + TypeScript (browser, no framework)
 - **Renderer**: HTML5 Canvas 2D (`CanvasRenderingContext2D`)
 - **Physics**: Custom fixed-step accumulator loop (60fps target, `physicsTimeStep = 1/60`)
-- **Checks**: Biome format/lint, TypeScript, Vitest, Vite — `npm run verify`
+- **Checks**: Biome format/lint, TypeScript, Vitest with engine/generator/save coverage floors, Vite — `npm run verify`
 
 ## Verification Gates
 Never mark work complete without running the canonical gate:
 ```
-npm run verify      # format, lint, typecheck, tests, and production build
+npm run verify      # format, lint, typecheck, covered tests, and production build
 npm run test:browser # Chromium, mobile emulation, and WebKit production journeys
 npm run test:procgen:extended # 10,000 seeds after generation/geometry changes
 ```

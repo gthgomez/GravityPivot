@@ -230,6 +230,38 @@ describe('UIController', () => {
     expect(el('telemetry-reach').textContent).toBe('180px');
   });
 
+  test('does not rewrite unchanged telemetry or sector readouts', () => {
+    const trackWrites = (target: Record<string, any>, property: string) => {
+      let value = target[property];
+      let writes = 0;
+      Object.defineProperty(target, property, {
+        configurable: true,
+        get: () => value,
+        set: (next: unknown) => {
+          writes++;
+          value = next;
+        },
+      });
+      return () => writes;
+    };
+    const tracked = [
+      trackWrites(el('telemetry-sigma'), 'textContent'),
+      trackWrites(el('telemetry-velocity'), 'textContent'),
+      trackWrites(el('telemetry-reach'), 'textContent'),
+      trackWrites(el('sector-hud-label'), 'textContent'),
+      trackWrites(el('sector-hud-bar').style, 'width'),
+    ];
+
+    ui.updateTelemetry('N/A', '360 px/s', '180px');
+    ui.updateSectorProgress(0.5, 1);
+    const initialWrites = tracked.map((countWrites) => countWrites());
+    ui.updateTelemetry('N/A', '360 px/s', '180px');
+    ui.updateSectorProgress(0.5, 1);
+
+    expect(initialWrites).toEqual([1, 1, 1, 1, 1]);
+    expect(tracked.map((countWrites) => countWrites())).toEqual(initialWrites);
+  });
+
   test('should update synth parameter readouts', () => {
     ui.updateSynthDisplay('120 Hz', '900 Hz', '7.5 Hz');
     expect(el('synth-freq').textContent).toBe('120 Hz');

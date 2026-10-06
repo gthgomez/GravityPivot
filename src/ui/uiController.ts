@@ -145,10 +145,12 @@ export class UIController {
     const bEl = this.elements['sector-hud-bar'];
     const lEl = this.elements['sector-hud-label'];
     if (bEl) {
-      bEl.style.width = `${progress * 100}%`;
+      const width = `${progress * 100}%`;
+      if (bEl.style.width !== width) bEl.style.width = width;
     }
     if (lEl) {
-      lEl.textContent = `SEC ${sectorIndex}`;
+      const label = `SEC ${sectorIndex}`;
+      if (lEl.textContent !== label) lEl.textContent = label;
     }
   }
 
@@ -157,9 +159,9 @@ export class UIController {
     const vEl = this.elements['telemetry-velocity'];
     const rEl = this.elements['telemetry-reach'];
 
-    if (sEl) sEl.textContent = sigma;
-    if (vEl) vEl.textContent = velocity;
-    if (rEl) rEl.textContent = reach;
+    if (sEl && sEl.textContent !== sigma) sEl.textContent = sigma;
+    if (vEl && vEl.textContent !== velocity) vEl.textContent = velocity;
+    if (rEl && rEl.textContent !== reach) rEl.textContent = reach;
   }
 
   public updateSynthDisplay(freq: string, filter: string, tempo: string): void {

@@ -262,8 +262,8 @@ Split into two PRs if pointer and accessibility review become substantial. **Mod
 This is a measured design campaign after correctness, delivered in at least two PRs. **Modify:** renderer/audio/UI/HTML/CSS for feel; generator/rules for difficulty; update GDD and Daily version when necessary.
 
 - [ ] Observe five short first-time play sessions where practical. Record time to first intentional tether/release, pause/retry confusion, cause-of-death understanding, and whether players choose to retry. Obtain actual observations before claiming fun or fairness scores improved.
-- [ ] Build an easy opening demonstration with “HOLD to tether” and “RELEASE to sling.” Teach near-miss combo only after the basic mechanic is understood. Avoid a pregame manual.
-- [ ] Give acquisition, orbital tension, release, near miss, and impact distinguishable cues. Reduce cockpit competition with score/combo/shield/sector; preserve the visual identity and reduced-motion behavior.
+- [x] Build an easy opening demonstration with “HOLD to tether” and “RELEASE to sling.” Teach near-miss combo only after the basic mechanic is understood. Avoid a pregame manual.
+- [x] Give acquisition, orbital tension, release, near miss, and impact distinguishable cues. Reduce cockpit competition with score/combo/shield/sector; preserve the visual identity and reduced-motion behavior.
 - [ ] Add a capped geometry schedule through a `DifficultyProfile`: clearance, vertical displacement, and route patterns. Approve concrete parameter bounds from the traversal/playtest baseline before coding the curve; keep core movement speed stable initially.
 - [ ] Reuse property tests, extended seed checks, and browser journeys. Explore a headless traversal policy only if actual impossible or boring seeds remain; its failure is diagnostic, not proof a human cannot succeed.
 - [ ] Reevaluate five short sessions against the baseline. Record remaining collision/readability concerns and tune one parameter family at a time. New scalar/play-style upgrades, skins, and additional modes follow demonstrated improvement in the core loop.
@@ -274,11 +274,11 @@ This is a measured design campaign after correctness, delivered in at least two 
 
 **Modify:** only the subsystem supported by measurements or the specific toolchain migration. Each major upgrade gets its own PR.
 
-- [ ] Profile repeated runs on a representative desktop and mobile device: frame percentiles, fixed-tick cost, active geometry/particle counts, DOM update frequency, and storage write latency. Provisional performance target: p95 visible frame time ≤16.7 ms on the documented 60 Hz reference device, with no growing active-world or episode state across repeated extensions.
-- [ ] Optimize only measured contributors. Danger UI deduplication is already addressed; storage batching, nearest-node indexing, and allocation changes need before/after evidence. A run-end-only save policy must not silently lose all cores when a tab closes.
-- [ ] Establish meaningful coverage for engine/generator/save logic. Set thresholds only after identifying uncovered behaviors; counts and percent coverage do not replace critical-journey proof.
-- [ ] Check current official release notes and compatibility at execution time. Upgrade Vitest, then Vite, then TypeScript as separately reviewable candidates, selecting supported releases rather than assuming the audit's claimed latest majors remain correct.
-- [ ] For each candidate run clean install, `npm run verify`, `npm run test:browser`, deployed-path preview, and compare build output/size and startup behavior. Stop further upgrading when there is no demonstrated maintenance or compatibility benefit.
+- [ ] Profile repeated runs on representative physical desktop and mobile devices: frame percentiles, fixed-tick cost, active geometry/particle counts, DOM update frequency, and storage write latency. The local headless/emulated baseline is recorded in `docs/PERFORMANCE_PROFILE.md`; provisional target remains p95 visible frame time ≤16.7 ms on documented 60 Hz reference devices, with no growing active-world or episode state across repeated extensions.
+- [x] Optimize only measured contributors. Equality guards removed repeated telemetry and sector-label writes; storage batching, nearest-node indexing, and allocation changes were not justified by current measurements. A run-end-only save policy was not introduced.
+- [x] Establish meaningful coverage for engine/generator/save logic. V8 coverage floors were set after reviewing the baseline and uncovered defensive/exceptional paths: 80% statements/functions/lines and 70% branches.
+- [x] Check official release notes and compatibility at execution time. Vitest, Vite, and TypeScript were upgraded as separately reviewable commits, selecting current compatible versions.
+- [x] For each candidate run clean install, `npm run verify`, `npm run test:browser`, local deployed-path preview, and compare build output and startup. Stop further upgrading when there is no demonstrated maintenance or compatibility benefit.
 
 **Gate:** Performance claims identify device and workload; every toolchain migration retains browser and deterministic gameplay behavior.
 

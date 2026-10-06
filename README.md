@@ -45,7 +45,7 @@ npm run test:browser
 npm run test:procgen:extended
 ```
 
-`npm run verify` checks formatting, lint, types, unit tests, and the production build. The Playwright suite exercises the production preview in desktop Chromium, touch-enabled Chromium emulation, and WebKit. These browser runs do not qualify physical iOS or Android devices. Install browsers locally with `npx playwright install chromium webkit` (Linux CI also installs their system dependencies).
+`npm run verify` checks formatting, lint, types, unit tests with targeted engine/generator/save coverage floors, and the production build. The Playwright suite exercises the production preview in desktop Chromium, touch-enabled Chromium emulation, and WebKit. These browser runs do not qualify physical iOS or Android devices. See [the performance profile](docs/PERFORMANCE_PROFILE.md) for current measurements and their hardware limits. Install browsers locally with `npx playwright install chromium webkit` (Linux CI also installs their system dependencies).
 
 ## License
 
