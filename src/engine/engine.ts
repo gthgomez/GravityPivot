@@ -352,22 +352,37 @@ export class GravityPivotEngine {
     }
   }
 
-  private updateCoresAndMagnetPull(): void {
+  private updateCoresAndMagnetPull(dt: number): void {
+    if (
+      !Number.isFinite(this.spark.x) ||
+      !Number.isFinite(this.spark.y) ||
+      this.activeMagnetRange <= 0
+    ) {
+      return;
+    }
     const activeViewLimit = 400;
     for (let i = 0; i < this.mapData.cores.length; i++) {
       const core = this.mapData.cores[i];
       if (core.collected) continue;
+      if (!Number.isFinite(core.x) || !Number.isFinite(core.y)) continue;
       if (Math.abs(core.x - this.spark.x) > activeViewLimit) continue;
 
       const dist = Math.hypot(core.x - this.spark.x, core.y - this.spark.y);
+      if (!Number.isFinite(dist)) continue;
 
       if (dist <= this.activeMagnetRange) {
-        const pullStrength = 0.15 * (1 - dist / this.activeMagnetRange);
-        core.x += (this.spark.x - core.x) * pullStrength;
-        core.y += (this.spark.y - core.y) * pullStrength;
+        const perSubstepPull = 0.15 * (1 - dist / this.activeMagnetRange);
+        const alpha =
+          1 - (1 - perSubstepPull) ** (DEFAULT_CONFIG.subSteps * dt * 60);
+        core.x += (this.spark.x - core.x) * alpha;
+        core.y += (this.spark.y - core.y) * alpha;
       }
 
-      if (dist < 14) {
+      const finalDistance = Math.hypot(
+        core.x - this.spark.x,
+        core.y - this.spark.y,
+      );
+      if (finalDistance < 14) {
         core.collected = true;
         this.spark.collectedInRun++;
         this.saveState.totalCores++;
@@ -532,11 +547,14 @@ export class GravityPivotEngine {
         }
       }
 
-      this.updateCoresAndMagnetPull();
       if (!hitWall) this.handleNearMisses(this.spark.x, this.spark.y);
     }
 
     if (this.gamePhase === GamePhase.CRASHED) return;
+
+    // Attraction/collection is one fixed-tick game system, independent of collision samples.
+    // Moving paths are endpoint-sampled; collision substeps do not multiply pickup strength.
+    this.updateCoresAndMagnetPull(dt);
 
     // Infinite segment generation check
     if (this.mapData.upperWallSpline.length > 0) {

@@ -285,6 +285,87 @@ describe('GravityPivotEngine', () => {
     expect(core.x).toBeLessThan(120);
   });
 
+  test('magnet pull is independent of collision substep count and collects once', () => {
+    const outcomes: Array<{ x: number; collected: number; score: number }> = [];
+    const map = engine.getMapData() as any;
+    const spark = engine.getSparkState() as any;
+
+    for (const subSteps of [1, 2, 4, 8]) {
+      engine.initializeLevel();
+      engine.setGamePhase(GamePhase.FLYING);
+      engine.getConfig().subSteps = subSteps;
+      map.upperWallSpline = [
+        { x: 0, y: 0 },
+        { x: 200, y: 0 },
+      ];
+      map.lowerWallSpline = [
+        { x: 0, y: 400 },
+        { x: 200, y: 400 },
+      ];
+      map.cores = [
+        { id: 'crossing-core', x: 130, y: 200, radius: 3.5, collected: false },
+      ];
+      spark.x = 100;
+      spark.y = 200;
+      spark.vx = 12;
+      spark.vy = 0;
+
+      engine.physicsTick(1 / 60);
+      outcomes.push({
+        x: map.cores[0].x,
+        collected: spark.collectedInRun,
+        score: spark.score,
+      });
+    }
+
+    for (const outcome of outcomes.slice(1)) {
+      expect(outcome.x).toBeCloseTo(outcomes[0].x);
+      expect(outcome.collected).toBe(1);
+      expect(outcome.score).toBe(150);
+    }
+  });
+
+  test('stationary attraction preserves the four-sample pull and zero-distance pickup', () => {
+    const map = engine.getMapData() as any;
+    const spark = engine.getSparkState() as any;
+    map.upperWallSpline = [
+      { x: 0, y: 0 },
+      { x: 200, y: 0 },
+    ];
+    map.lowerWallSpline = [
+      { x: 0, y: 400 },
+      { x: 200, y: 400 },
+    ];
+    map.cores = [
+      { id: 'stationary', x: 120, y: 200, radius: 3.5, collected: false },
+      { id: 'zero-distance', x: 100, y: 200, radius: 3.5, collected: false },
+    ];
+    spark.x = 100;
+    spark.y = 200;
+    spark.vx = 0;
+    spark.vy = 0;
+
+    engine.physicsTick(1 / 60);
+
+    const p = 0.15 * (1 - 20 / 40);
+    const alpha = 1 - (1 - p) ** 4;
+    expect(map.cores[0].x).toBeCloseTo(120 + (100 - 120) * alpha);
+    expect(map.cores[1].collected).toBe(true);
+    expect(spark.collectedInRun).toBe(1);
+    expect(spark.score).toBe(150);
+  });
+
+  test('nonfinite core coordinates are ignored safely', () => {
+    const map = engine.getMapData() as any;
+    map.cores = [
+      { id: 'invalid', x: Number.NaN, y: 200, radius: 3.5, collected: false },
+    ];
+
+    expect(() => engine.physicsTick(1 / 60)).not.toThrow();
+    expect(map.cores.some((core: any) => core.collected)).toBe(false);
+    expect(engine.getSparkState().collectedInRun).toBe(0);
+  });
+
   test('should not crash or tether when nodes map is empty', () => {
     const map = engine.getMapData() as any;
     map.nodes = [];
