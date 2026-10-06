@@ -11,6 +11,7 @@ A hyper-casual physics-based space navigation game. Pilot your spark spacecraft 
 - **Styling:** Vanilla CSS (custom properties, theme variables, zero utility overhead)
 - **Build Tool:** Vite
 - **Testing Framework:** Vitest
+- **Formatting and linting:** Biome
 
 ## Game Architecture
 The code is split into decoupled modules using constructor Dependency Injection:
@@ -27,13 +28,13 @@ The code is split into decoupled modules using constructor Dependency Injection:
 ## Getting Started
 
 ### Prerequisites
-- Node.js (v18+)
+- Node.js 24 LTS
 - npm
 
 ### Installation
 ```bash
 # Install dependencies
-npm install
+npm ci
 ```
 
 ### Development
@@ -44,11 +45,8 @@ npm run dev
 
 ### Testing
 ```bash
-# Run unit tests
-npm run test
-
-# Type-check TypeScript files
-npm run typecheck
+# Run formatting, lint, typecheck, unit tests, and the production build
+npm run verify
 ```
 
 ### Build

@@ -15,7 +15,6 @@ permissions:
 
 jobs:
   verify:
-    name: Typecheck, test & build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -31,14 +30,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type-check
-        run: npm run typecheck
-
-      - name: Unit tests
-        run: npm test
-
-      - name: Production build
-        run: npm run build
+      - name: Verify
+        run: npm run verify
 
       - name: Upload build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -8,17 +8,16 @@
 > This file covers canvas-engine–specific guardrails for the GravityPivot project only.
 
 ## Stack
+- **Supported development runtime**: Node.js 24 LTS (`.nvmrc`)
 - **Runtime**: Vite + TypeScript (browser, no framework)
 - **Renderer**: HTML5 Canvas 2D (`CanvasRenderingContext2D`)
 - **Physics**: Custom fixed-step accumulator loop (60fps target, `physicsTimeStep = 1/60`)
-- **Tests**: Vitest — `npm run test`
-- **Type check**: `npm run typecheck` (`tsc --noEmit`)
+- **Checks**: Biome format/lint, TypeScript, Vitest, Vite — `npm run verify`
 
 ## Verification Gates
-Never mark work complete without running both:
+Never mark work complete without running the canonical gate:
 ```
-npm run typecheck   # must be 0 errors
-npm run test        # all suites must pass
+npm run verify      # format, lint, typecheck, tests, and production build
 ```
 
 ---

@@ -38,8 +38,32 @@ export function upgradeCost(baseCost: number, currentLevel: number): number {
 }
 
 export const SHIP_SKINS = [
-  { id: 0, name: 'Default', shipColor: '#ffffff', trailColor: '#22d3ee', cost: 0 },
-  { id: 1, name: 'Cyber Pink', shipColor: '#f472b6', trailColor: '#ec4899', cost: 30 },
-  { id: 2, name: 'Matrix Green', shipColor: '#34d399', trailColor: '#10b981', cost: 50 },
-  { id: 3, name: 'Aurum Gold', shipColor: '#fbbf24', trailColor: '#f59e0b', cost: 75 },
+  {
+    id: 0,
+    name: 'Default',
+    shipColor: '#ffffff',
+    trailColor: '#22d3ee',
+    cost: 0,
+  },
+  {
+    id: 1,
+    name: 'Cyber Pink',
+    shipColor: '#f472b6',
+    trailColor: '#ec4899',
+    cost: 30,
+  },
+  {
+    id: 2,
+    name: 'Matrix Green',
+    shipColor: '#34d399',
+    trailColor: '#10b981',
+    cost: 50,
+  },
+  {
+    id: 3,
+    name: 'Aurum Gold',
+    shipColor: '#fbbf24',
+    trailColor: '#f59e0b',
+    cost: 75,
+  },
 ] as const;

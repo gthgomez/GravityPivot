@@ -11,32 +11,82 @@ export class UIController {
 
   private cacheElements(): void {
     const ids = [
-      'mini-shield', 'mini-cores', 'unmute-btn', 'shield-heart-container',
-      'sector-hud-label', 'sector-hud-bar', 'hud-run-cores', 'hud-score', 'hud-combo',
-      'launch-prompt-overlay', 'btn-splash-launch', 'sector-milestone-popup',
-      'sector-milestone-title', 'btn-play', 'danger-warning', 'shop-cores-count',
-      'upg-shield-level', 'upg-magnet-level', 'upg-tether-level',
-      'buy-shield-btn', 'buy-shield-label', 'buy-shield-cost',
-      'buy-magnet-btn', 'buy-magnet-label', 'buy-magnet-cost',
-      'buy-tether-btn', 'buy-tether-label', 'buy-tether-cost',
-      'telemetry-sigma', 'telemetry-velocity', 'telemetry-reach', 'telemetry-cores',
-      'synth-freq', 'synth-mod', 'synth-tempo', 'metric-log',
-      'slide-speed', 'slide-substeps', 'slide-buffer',
-      'val-speed', 'val-substeps', 'val-buffer',
-      'toggle-substep', 'toggle-safety', 'toggle-singularity',
-      'pause-overlay', 'resume-btn',
-      'tab-cockpit', 'tab-terminal', 'tab-telemetry', 'tab-calibration',
-      'view-cockpit', 'view-terminal', 'view-telemetry', 'view-calibration',
-      'leaderboard-list', 'hud-personal-best', 'game-over-panel',
-      'game-over-score', 'game-over-sector', 'game-over-best', 'game-over-label',
-      'game-over-retry', 'buy-skin-btn', 'buy-skin-label', 'buy-skin-cost', 'upg-skin-name',
-      'hud-pb-label'
+      'mini-shield',
+      'mini-cores',
+      'unmute-btn',
+      'shield-heart-container',
+      'sector-hud-label',
+      'sector-hud-bar',
+      'hud-run-cores',
+      'hud-score',
+      'hud-combo',
+      'launch-prompt-overlay',
+      'btn-splash-launch',
+      'sector-milestone-popup',
+      'sector-milestone-title',
+      'btn-play',
+      'danger-warning',
+      'shop-cores-count',
+      'upg-shield-level',
+      'upg-magnet-level',
+      'upg-tether-level',
+      'buy-shield-btn',
+      'buy-shield-label',
+      'buy-shield-cost',
+      'buy-magnet-btn',
+      'buy-magnet-label',
+      'buy-magnet-cost',
+      'buy-tether-btn',
+      'buy-tether-label',
+      'buy-tether-cost',
+      'telemetry-sigma',
+      'telemetry-velocity',
+      'telemetry-reach',
+      'telemetry-cores',
+      'synth-freq',
+      'synth-mod',
+      'synth-tempo',
+      'metric-log',
+      'slide-speed',
+      'slide-substeps',
+      'slide-buffer',
+      'val-speed',
+      'val-substeps',
+      'val-buffer',
+      'toggle-substep',
+      'toggle-safety',
+      'toggle-singularity',
+      'pause-overlay',
+      'resume-btn',
+      'tab-cockpit',
+      'tab-terminal',
+      'tab-telemetry',
+      'tab-calibration',
+      'view-cockpit',
+      'view-terminal',
+      'view-telemetry',
+      'view-calibration',
+      'leaderboard-list',
+      'hud-personal-best',
+      'game-over-panel',
+      'game-over-score',
+      'game-over-sector',
+      'game-over-best',
+      'game-over-label',
+      'game-over-retry',
+      'buy-skin-btn',
+      'buy-skin-label',
+      'buy-skin-cost',
+      'upg-skin-name',
+      'hud-pb-label',
     ];
 
-    ids.forEach(id => {
+    ids.forEach((id) => {
       const el = document.getElementById(id);
       if (!el) {
-        console.warn(`[UIController] Element with ID '${id}' was not found in the DOM.`);
+        console.warn(
+          `[UIController] Element with ID '${id}' was not found in the DOM.`,
+        );
       }
       this.elements[id] = el;
     });
@@ -153,7 +203,10 @@ export class UIController {
     }
   }
 
-  public appendLog(message: string, style: 'info' | 'warn' | 'alert' | 'success'): void {
+  public appendLog(
+    message: string,
+    style: 'info' | 'warn' | 'alert' | 'success',
+  ): void {
     const container = this.elements['metric-log'];
     if (!container) return;
 
@@ -162,16 +215,16 @@ export class UIController {
       info: 'color: #22d3ee;',
       warn: 'color: #fbbf24;',
       alert: 'color: #f43f5e;',
-      success: 'color: #10b981;'
+      success: 'color: #10b981;',
     };
     div.className = 'mono';
     div.style.cssText = styles[style] || 'color: #94a3b8;';
     div.style.fontSize = '9px';
     div.style.lineHeight = '1.5';
-    
+
     const timestamp = new Date().toLocaleTimeString().split(' ')[0];
     div.textContent = `> [${timestamp}] ${message}`;
-    
+
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 
@@ -191,7 +244,13 @@ export class UIController {
     if (uMagnet) uMagnet.textContent = `Lvl ${saveState.magnetLvl}`;
     if (uTether) uTether.textContent = `Lvl ${saveState.tetherLvl}`;
 
-    const syncButton = (btnId: string, labelId: string, costId: string, curLvl: number, baseCost: number) => {
+    const syncButton = (
+      btnId: string,
+      labelId: string,
+      costId: string,
+      curLvl: number,
+      baseCost: number,
+    ) => {
       const btn = this.elements[btnId] as HTMLButtonElement | null;
       const label = this.elements[labelId];
       const cost = this.elements[costId];
@@ -201,8 +260,8 @@ export class UIController {
         btn.disabled = true;
         btn.style.opacity = '0.5';
         btn.style.cursor = 'not-allowed';
-        if (label) label.textContent = "MAX LEVEL";
-        if (cost) cost.textContent = "CAPPED";
+        if (label) label.textContent = 'MAX LEVEL';
+        if (cost) cost.textContent = 'CAPPED';
       } else {
         btn.disabled = false;
         btn.style.opacity = '1';
@@ -211,9 +270,27 @@ export class UIController {
       }
     };
 
-    syncButton('buy-shield-btn', 'buy-shield-label', 'buy-shield-cost', saveState.shieldLvl, 10);
-    syncButton('buy-magnet-btn', 'buy-magnet-label', 'buy-magnet-cost', saveState.magnetLvl, 15);
-    syncButton('buy-tether-btn', 'buy-tether-label', 'buy-tether-cost', saveState.tetherLvl, 20);
+    syncButton(
+      'buy-shield-btn',
+      'buy-shield-label',
+      'buy-shield-cost',
+      saveState.shieldLvl,
+      10,
+    );
+    syncButton(
+      'buy-magnet-btn',
+      'buy-magnet-label',
+      'buy-magnet-cost',
+      saveState.magnetLvl,
+      15,
+    );
+    syncButton(
+      'buy-tether-btn',
+      'buy-tether-label',
+      'buy-tether-cost',
+      saveState.tetherLvl,
+      20,
+    );
   }
 
   public switchTab(tab: ViewTab, activeTab: ViewTab): ViewTab {
@@ -221,7 +298,10 @@ export class UIController {
       [ViewTab.COCKPIT]: { btn: 'tab-cockpit', view: 'view-cockpit' },
       [ViewTab.TERMINAL]: { btn: 'tab-terminal', view: 'view-terminal' },
       [ViewTab.TELEMETRY]: { btn: 'tab-telemetry', view: 'view-telemetry' },
-      [ViewTab.CALIBRATION]: { btn: 'tab-calibration', view: 'view-calibration' }
+      [ViewTab.CALIBRATION]: {
+        btn: 'tab-calibration',
+        view: 'view-calibration',
+      },
     };
 
     const current = tabs[activeTab];
@@ -254,31 +334,42 @@ export class UIController {
   }
 
   public getCalibrationState(): CalibrationState {
-    const substepEl = this.elements['toggle-substep'] as HTMLInputElement | null;
+    const substepEl = this.elements[
+      'toggle-substep'
+    ] as HTMLInputElement | null;
     const safetyEl = this.elements['toggle-safety'] as HTMLInputElement | null;
-    const singularityEl = this.elements['toggle-singularity'] as HTMLInputElement | null;
+    const singularityEl = this.elements[
+      'toggle-singularity'
+    ] as HTMLInputElement | null;
 
     return {
       subSteppingEnabled: substepEl ? substepEl.checked : true,
       safetyGapsEnabled: safetyEl ? safetyEl.checked : true,
-      collinearFallbackEnabled: singularityEl ? singularityEl.checked : true
+      collinearFallbackEnabled: singularityEl ? singularityEl.checked : true,
     };
   }
 
-  public getWorldCoords(clientX: number, clientY: number, sparkX: number, canvas: HTMLCanvasElement): { worldX: number; worldY: number } {
+  public getWorldCoords(
+    clientX: number,
+    clientY: number,
+    sparkX: number,
+    canvas: HTMLCanvasElement,
+  ): { worldX: number; worldY: number } {
     const rect = canvas.getBoundingClientRect();
     const cssX = clientX - rect.left;
     const cssY = clientY - rect.top;
-    
+
     const width = rect.width || 1;
     const height = rect.height || 1;
-    const localX = (cssX / width) * (canvas.width / (window.devicePixelRatio || 1));
-    const localY = (cssY / height) * (canvas.height / (window.devicePixelRatio || 1));
-    
+    const localX =
+      (cssX / width) * (canvas.width / (window.devicePixelRatio || 1));
+    const localY =
+      (cssY / height) * (canvas.height / (window.devicePixelRatio || 1));
+
     const cameraOffsetX = Math.round(-sparkX + 150);
     return {
       worldX: localX - cameraOffsetX,
-      worldY: localY
+      worldY: localY,
     };
   }
 
@@ -288,7 +379,8 @@ export class UIController {
     const cost = this.elements['buy-skin-cost'];
     const skinNameLabel = this.elements['upg-skin-name'];
 
-    const activeSkin = SHIP_SKINS.find(s => s.id === saveState.activeSkinId) || SHIP_SKINS[0];
+    const activeSkin =
+      SHIP_SKINS.find((s) => s.id === saveState.activeSkinId) || SHIP_SKINS[0];
     if (skinNameLabel) {
       skinNameLabel.textContent = activeSkin.name.toUpperCase();
     }
@@ -300,8 +392,8 @@ export class UIController {
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.style.cursor = 'pointer';
-      if (label) label.textContent = "Cycle Active Theme";
-      if (cost) cost.textContent = "FREE";
+      if (label) label.textContent = 'Cycle Active Theme';
+      if (cost) cost.textContent = 'FREE';
     } else {
       const nextSkin = SHIP_SKINS[nextSkinId];
       btn.disabled = false;
@@ -312,7 +404,9 @@ export class UIController {
     }
   }
 
-  public updateLeaderboardDisplay(highScores: Array<{ score: number; sector: number; date: string }>): void {
+  public updateLeaderboardDisplay(
+    highScores: Array<{ score: number; sector: number; date: string }>,
+  ): void {
     const container = this.elements['leaderboard-list'];
     if (!container) return;
 
@@ -330,23 +424,23 @@ export class UIController {
     highScores.forEach((score, index) => {
       const row = document.createElement('div');
       row.className = 'leaderboard-entry';
-      
+
       const rank = document.createElement('span');
       rank.className = 'rank';
       rank.textContent = `#${index + 1}`;
-      
+
       const scoreVal = document.createElement('span');
       scoreVal.className = 'score';
       scoreVal.textContent = String(score.score).padStart(5, '0');
-      
+
       const sector = document.createElement('span');
       sector.className = 'sector';
       sector.textContent = `SEC ${score.sector}`;
-      
+
       const date = document.createElement('span');
       date.className = 'date';
       date.textContent = score.date;
-      
+
       row.appendChild(rank);
       row.appendChild(scoreVal);
       row.appendChild(sector);
@@ -373,7 +467,7 @@ export class UIController {
     personalBest: number,
     isNewDailyBest: boolean,
     dailyBest: number,
-    isDailyMode: boolean
+    isDailyMode: boolean,
   ): void {
     const overlay = this.elements['game-over-panel'];
     const scoreVal = this.elements['game-over-score'];
@@ -386,11 +480,13 @@ export class UIController {
       statLabels[2].textContent = isDailyMode ? 'DAILY BEST' : 'PERSONAL BEST';
     }
 
-    if (scoreVal) scoreVal.textContent = String(Math.floor(finalScore)).padStart(5, '0');
+    if (scoreVal)
+      scoreVal.textContent = String(Math.floor(finalScore)).padStart(5, '0');
     if (sectorVal) sectorVal.textContent = `SEC ${sectorReached}`;
-    
+
     const displayBest = isDailyMode ? dailyBest : personalBest;
-    if (bestVal) bestVal.textContent = String(Math.floor(displayBest)).padStart(5, '0');
+    if (bestVal)
+      bestVal.textContent = String(Math.floor(displayBest)).padStart(5, '0');
 
     if (label) {
       if (isDailyMode) {

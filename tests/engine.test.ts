@@ -16,14 +16,16 @@ describe('GravityPivotEngine', () => {
     Object.defineProperty(globalThis, 'localStorage', {
       value: {
         getItem: (key: string) => store[key] || null,
-        setItem: (key: string, value: string) => { store[key] = value; }
+        setItem: (key: string, value: string) => {
+          store[key] = value;
+        },
       },
       writable: true,
-      configurable: true
+      configurable: true,
     });
 
     saveState = new GameSaveState();
-    
+
     callbacks = {
       onShieldChanged: vi.fn(),
       onScoreChanged: vi.fn(),
@@ -36,13 +38,13 @@ describe('GravityPivotEngine', () => {
       onTetherAcquired: vi.fn(),
       onTetherReleased: vi.fn(),
       onTelemetryUpdate: vi.fn(),
-      onLog: vi.fn()
+      onLog: vi.fn(),
     };
 
     calibration = {
       subSteppingEnabled: true,
       safetyGapsEnabled: false,
-      collinearFallbackEnabled: true
+      collinearFallbackEnabled: true,
     };
 
     engine = new GravityPivotEngine(saveState, callbacks, calibration);
@@ -70,9 +72,7 @@ describe('GravityPivotEngine', () => {
 
   test('should establish orbital tether on nearby node', () => {
     const map = engine.getMapData() as any;
-    map.nodes = [
-      { id: 'node_test', x: 200, y: 200, radius: 20 }
-    ];
+    map.nodes = [{ id: 'node_test', x: 200, y: 200, radius: 20 }];
 
     const spark = engine.getSparkState() as any;
     spark.x = 150;
@@ -107,12 +107,12 @@ describe('GravityPivotEngine', () => {
     map.upperWallSpline = [
       { x: 0, y: 150 },
       { x: 100, y: 150 },
-      { x: 200, y: 150 }
+      { x: 200, y: 150 },
     ];
     map.lowerWallSpline = [
       { x: 0, y: 350 },
       { x: 100, y: 350 },
-      { x: 200, y: 350 }
+      { x: 200, y: 350 },
     ];
 
     spark.x = 100;
@@ -135,11 +135,11 @@ describe('GravityPivotEngine', () => {
     const map = engine.getMapData() as any;
     map.upperWallSpline = [
       { x: 0, y: 150 },
-      { x: 100, y: 150 }
+      { x: 100, y: 150 },
     ];
     map.lowerWallSpline = [
       { x: 0, y: 350 },
-      { x: 100, y: 350 }
+      { x: 100, y: 350 },
     ];
 
     spark.x = 100;
@@ -170,12 +170,12 @@ describe('GravityPivotEngine', () => {
     map.upperWallSpline = [
       { x: 0, y: 150 },
       { x: 100, y: 150 },
-      { x: 200, y: 150 }
+      { x: 200, y: 150 },
     ];
     map.lowerWallSpline = [
       { x: 0, y: 350 },
       { x: 100, y: 350 },
-      { x: 200, y: 350 }
+      { x: 200, y: 350 },
     ];
 
     spark.x = 20;
@@ -196,7 +196,7 @@ describe('GravityPivotEngine', () => {
   test('should pull collectible cores when within magnet range', () => {
     const map = engine.getMapData() as any;
     map.cores = [
-      { id: 'core_test', x: 120, y: 200, radius: 3.5, collected: false }
+      { id: 'core_test', x: 120, y: 200, radius: 3.5, collected: false },
     ];
 
     const spark = engine.getSparkState() as any;
@@ -215,7 +215,10 @@ describe('GravityPivotEngine', () => {
 
     engine.acquireTether();
     expect(engine.getSparkState().flightState).toBe(FlightState.LINEAR);
-    expect(callbacks.onLog).toHaveBeenCalledWith(expect.stringContaining('tether limits'), 'warn');
+    expect(callbacks.onLog).toHaveBeenCalledWith(
+      expect.stringContaining('tether limits'),
+      'warn',
+    );
   });
 
   test('should do nothing on releaseTether when already in LINEAR mode', () => {
@@ -234,11 +237,11 @@ describe('GravityPivotEngine', () => {
     const map = engine.getMapData() as any;
     map.upperWallSpline = [
       { x: 0, y: 150 },
-      { x: 100, y: 150 }
+      { x: 100, y: 150 },
     ];
     map.lowerWallSpline = [
       { x: 0, y: 350 },
-      { x: 100, y: 350 }
+      { x: 100, y: 350 },
     ];
 
     spark.x = 100;
@@ -288,11 +291,11 @@ describe('GravityPivotEngine', () => {
     const map = engine.getMapData() as any;
     map.upperWallSpline = [
       { x: 0, y: 150 },
-      { x: 100, y: 150 }
+      { x: 100, y: 150 },
     ];
     map.lowerWallSpline = [
       { x: 0, y: 350 },
-      { x: 100, y: 350 }
+      { x: 100, y: 350 },
     ];
 
     spark.x = 100;
@@ -307,7 +310,7 @@ describe('GravityPivotEngine', () => {
       1,
       true,
       true,
-      150
+      150,
     );
   });
 
@@ -315,9 +318,7 @@ describe('GravityPivotEngine', () => {
 
   test('should acquire tether on node tapped within proximity radius (touch path)', () => {
     const map = engine.getMapData() as any;
-    map.nodes = [
-      { id: 'node_tap', x: 250, y: 200, radius: 20 }
-    ];
+    map.nodes = [{ id: 'node_tap', x: 250, y: 200, radius: 20 }];
 
     const spark = engine.getSparkState() as any;
     spark.x = 100;
@@ -335,9 +336,7 @@ describe('GravityPivotEngine', () => {
 
   test('should not tether when tapped node is beyond maxTetherRadius from player', () => {
     const map = engine.getMapData() as any;
-    map.nodes = [
-      { id: 'node_far', x: 400, y: 200, radius: 20 }
-    ];
+    map.nodes = [{ id: 'node_far', x: 400, y: 200, radius: 20 }];
 
     const spark = engine.getSparkState() as any;
     spark.x = 100;
@@ -349,15 +348,13 @@ describe('GravityPivotEngine', () => {
     expect(callbacks.onTetherAcquired).not.toHaveBeenCalled();
     expect(callbacks.onLog).toHaveBeenCalledWith(
       expect.stringContaining('outside tether limits'),
-      'warn'
+      'warn',
     );
   });
 
   test('should fall back to player-proximity node when tap is far from all nodes', () => {
     const map = engine.getMapData() as any;
-    map.nodes = [
-      { id: 'node_near_player', x: 250, y: 200, radius: 20 }
-    ];
+    map.nodes = [{ id: 'node_near_player', x: 250, y: 200, radius: 20 }];
 
     const spark = engine.getSparkState() as any;
     spark.x = 100;
@@ -374,7 +371,7 @@ describe('GravityPivotEngine', () => {
     const map = engine.getMapData() as any;
     map.nodes = [
       { id: 'node_close', x: 200, y: 200, radius: 20 },
-      { id: 'node_tapped', x: 260, y: 210, radius: 20 }
+      { id: 'node_tapped', x: 260, y: 210, radius: 20 },
     ];
 
     const spark = engine.getSparkState() as any;
@@ -431,7 +428,9 @@ describe('GravityPivotEngine', () => {
 
   test('should persist totalCores to save state when a core is collected', () => {
     const map = engine.getMapData() as any;
-    map.cores = [{ id: 'core_1', x: 105, y: 200, radius: 3.5, collected: false }];
+    map.cores = [
+      { id: 'core_1', x: 105, y: 200, radius: 3.5, collected: false },
+    ];
 
     const spark = engine.getSparkState() as any;
     spark.x = 100;
@@ -468,7 +467,9 @@ describe('GravityPivotEngine', () => {
     expect(engine.getSectorIndex()).toBe(1);
     expect(engine.getRunDistance()).toBe(0);
     expect(engine.getTrail().length).toBe(0);
-    expect(engine.getSparkState().shield).toBe(engine.getSparkState().maxShield);
+    expect(engine.getSparkState().shield).toBe(
+      engine.getSparkState().maxShield,
+    );
   });
 
   test('should re-enable controls after restart following a crash', () => {
@@ -476,8 +477,14 @@ describe('GravityPivotEngine', () => {
     spark.shield = 1;
 
     const map = engine.getMapData() as any;
-    map.upperWallSpline = [{ x: 0, y: 150 }, { x: 100, y: 150 }];
-    map.lowerWallSpline = [{ x: 0, y: 350 }, { x: 100, y: 350 }];
+    map.upperWallSpline = [
+      { x: 0, y: 150 },
+      { x: 100, y: 150 },
+    ];
+    map.lowerWallSpline = [
+      { x: 0, y: 350 },
+      { x: 100, y: 350 },
+    ];
     spark.x = 100;
     spark.y = 120;
 

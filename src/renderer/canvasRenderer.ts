@@ -15,13 +15,23 @@ export class CanvasRenderer {
     vy: number;
     life: number;
   }> = [];
-  private stars: Array<{ x: number; y: number; size: number; speedMult: number }> = [];
+  private stars: Array<{
+    x: number;
+    y: number;
+    size: number;
+    speedMult: number;
+  }> = [];
 
   public triggerShake(intensity: number): void {
     this.shakeIntensity = intensity;
   }
 
-  public spawnFloatingText(screenX: number, screenY: number, text: string, color: string): void {
+  public spawnFloatingText(
+    screenX: number,
+    screenY: number,
+    text: string,
+    color: string,
+  ): void {
     this.floatingTexts.push({
       screenX,
       screenY,
@@ -29,7 +39,7 @@ export class CanvasRenderer {
       color,
       alpha: 1.0,
       vy: -0.8,
-      life: 45
+      life: 45,
     });
   }
 
@@ -62,13 +72,14 @@ export class CanvasRenderer {
     maxTetherRadius: number,
     sectorIndex: number,
     gamePhase: GamePhase,
-    activeSkinId: number
+    activeSkinId: number,
   ): void {
     const scale = window.devicePixelRatio || 1;
     const logicalWidth = this.canvas.width / scale;
     const logicalHeight = this.canvas.height / scale;
 
-    const activeSkin = SHIP_SKINS.find(s => s.id === activeSkinId) || SHIP_SKINS[0];
+    const activeSkin =
+      SHIP_SKINS.find((s) => s.id === activeSkinId) || SHIP_SKINS[0];
     const shipColor = activeSkin.shipColor;
     const trailColor = activeSkin.trailColor;
 
@@ -81,7 +92,7 @@ export class CanvasRenderer {
           x: Math.random() * logicalWidth,
           y: Math.random() * logicalHeight,
           size: 0.5 + Math.random() * 1.5,
-          speedMult: 0.05 + Math.random() * 0.15
+          speedMult: 0.05 + Math.random() * 0.15,
         });
       }
     }
@@ -90,20 +101,26 @@ export class CanvasRenderer {
     const sectorHue = (sectorIndex * 40) % 360;
     this.ctx.fillStyle = `hsl(${sectorHue}, 40%, 65%)`;
     for (const star of this.stars) {
-      const screenX = (star.x - (spark.x * star.speedMult)) % logicalWidth;
+      const screenX = (star.x - spark.x * star.speedMult) % logicalWidth;
       const finalX = screenX < 0 ? screenX + logicalWidth : screenX;
-      
+
       this.ctx.beginPath();
       this.ctx.arc(finalX, star.y, star.size, 0, Math.PI * 2);
       this.ctx.save();
-      this.ctx.globalAlpha = 0.15 + (star.size * 0.10);
+      this.ctx.globalAlpha = 0.15 + star.size * 0.1;
       this.ctx.fill();
       this.ctx.restore();
     }
 
     const cameraOffsetX = Math.round(-spark.x + 150);
-    const shakeX = this.shakeIntensity > 0.5 ? (Math.random() - 0.5) * this.shakeIntensity : 0;
-    const shakeY = this.shakeIntensity > 0.5 ? (Math.random() - 0.5) * this.shakeIntensity : 0;
+    const shakeX =
+      this.shakeIntensity > 0.5
+        ? (Math.random() - 0.5) * this.shakeIntensity
+        : 0;
+    const shakeY =
+      this.shakeIntensity > 0.5
+        ? (Math.random() - 0.5) * this.shakeIntensity
+        : 0;
 
     this.ctx.save();
     this.ctx.translate(cameraOffsetX + shakeX, shakeY);
@@ -124,24 +141,42 @@ export class CanvasRenderer {
     // Draw Cave walls
     if (mapData.upperWallSpline.length > 0) {
       const upperSpline = new Path2D();
-      upperSpline.moveTo(mapData.upperWallSpline[0].x, mapData.upperWallSpline[0].y);
+      upperSpline.moveTo(
+        mapData.upperWallSpline[0].x,
+        mapData.upperWallSpline[0].y,
+      );
       for (let i = 1; i < mapData.upperWallSpline.length; i++) {
-        upperSpline.lineTo(mapData.upperWallSpline[i].x, mapData.upperWallSpline[i].y);
+        upperSpline.lineTo(
+          mapData.upperWallSpline[i].x,
+          mapData.upperWallSpline[i].y,
+        );
       }
 
       const upperFill = new Path2D(upperSpline);
-      upperFill.lineTo(mapData.upperWallSpline[mapData.upperWallSpline.length - 1].x, 0);
+      upperFill.lineTo(
+        mapData.upperWallSpline[mapData.upperWallSpline.length - 1].x,
+        0,
+      );
       upperFill.lineTo(mapData.upperWallSpline[0].x, 0);
       upperFill.closePath();
 
       const lowerSpline = new Path2D();
-      lowerSpline.moveTo(mapData.lowerWallSpline[0].x, mapData.lowerWallSpline[0].y);
+      lowerSpline.moveTo(
+        mapData.lowerWallSpline[0].x,
+        mapData.lowerWallSpline[0].y,
+      );
       for (let i = 1; i < mapData.lowerWallSpline.length; i++) {
-        lowerSpline.lineTo(mapData.lowerWallSpline[i].x, mapData.lowerWallSpline[i].y);
+        lowerSpline.lineTo(
+          mapData.lowerWallSpline[i].x,
+          mapData.lowerWallSpline[i].y,
+        );
       }
 
       const lowerFill = new Path2D(lowerSpline);
-      lowerFill.lineTo(mapData.lowerWallSpline[mapData.lowerWallSpline.length - 1].x, 400);
+      lowerFill.lineTo(
+        mapData.lowerWallSpline[mapData.lowerWallSpline.length - 1].x,
+        400,
+      );
       lowerFill.lineTo(mapData.lowerWallSpline[0].x, 400);
       lowerFill.closePath();
 
@@ -164,7 +199,9 @@ export class CanvasRenderer {
 
       this.ctx.beginPath();
       this.ctx.arc(node.x, node.y, maxTetherRadius, 0, Math.PI * 2);
-      this.ctx.strokeStyle = active ? 'rgba(34, 211, 238, 0.05)' : 'rgba(255, 255, 255, 0.01)';
+      this.ctx.strokeStyle = active
+        ? 'rgba(34, 211, 238, 0.05)'
+        : 'rgba(255, 255, 255, 0.01)';
       this.ctx.stroke();
 
       this.ctx.beginPath();
@@ -199,7 +236,9 @@ export class CanvasRenderer {
 
     // Draw active gravity tether anchor connection
     if (spark.flightState === FlightState.ORBITAL) {
-      const targetNode = mapData.nodes.find(n => n.id === spark.orbitalNodeId);
+      const targetNode = mapData.nodes.find(
+        (n) => n.id === spark.orbitalNodeId,
+      );
       if (targetNode) {
         this.ctx.beginPath();
         this.ctx.moveTo(spark.x, spark.y);

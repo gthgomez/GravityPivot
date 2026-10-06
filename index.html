@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gravity Pivot - Production-Ready TypeScript Edition</title>
+  <title>Gravity Pivot — Tether and Release</title>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,8 +31,8 @@
         <span id="mini-cores" class="status-value-cores">0</span>
       </div>
       
-      <button id="unmute-btn" class="interactive-btn synth-toggle-btn" aria-label="Toggle Sound Synthesizer">
-        <svg xmlns="http://www.w3.org/2000/svg" class="synth-toggle-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button type="button" id="unmute-btn" class="interactive-btn synth-toggle-btn" aria-label="Toggle Sound Synthesizer">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="synth-toggle-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
         </svg>
         <span class="mono synth-toggle-text">SYNTH LAYER</span>
@@ -43,26 +43,26 @@
   <!-- Navigation Dock -->
   <nav class="nav-dock">
     <div class="nav-dock-container">
-      <button id="tab-cockpit" class="interactive-btn tab-button tab-active" aria-label="Navigate to Cockpit View">
-        <svg xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button type="button" id="tab-cockpit" class="interactive-btn tab-button tab-active" aria-label="Navigate to Cockpit View">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
         <span class="tab-label">COCKPIT</span>
       </button>
-      <button id="tab-terminal" class="interactive-btn tab-button" aria-label="Navigate to Upgrades Terminal">
-        <svg xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button type="button" id="tab-terminal" class="interactive-btn tab-button" aria-label="Navigate to Upgrades Terminal">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
         </svg>
         <span class="tab-label">UPGRADES</span>
       </button>
-      <button id="tab-telemetry" class="interactive-btn tab-button" aria-label="Navigate to Diagnostics and Telemetry">
-        <svg xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button type="button" id="tab-telemetry" class="interactive-btn tab-button" aria-label="Navigate to Diagnostics and Telemetry">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
         <span class="tab-label">DIAGNOSTICS</span>
       </button>
-      <button id="tab-calibration" class="interactive-btn tab-button" aria-label="Navigate to Calibration Settings">
-        <svg xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button type="button" id="tab-calibration" class="interactive-btn tab-button" aria-label="Navigate to Calibration Settings">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
         </svg>
         <span class="tab-label">CALIBRATE</span>
@@ -76,12 +76,12 @@
     <!-- Pause State Backdrop -->
     <div id="pause-overlay" class="overlay-backdrop pause-overlay">
       <div class="pause-icon-container">
-        <svg xmlns="http://www.w3.org/2000/svg" class="pause-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="pause-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </div>
       <p class="pause-title mono">Flight Dynamics Paused</p>
-      <button id="resume-btn" class="interactive-btn resume-btn">Resume Flight Control</button>
+      <button type="button" id="resume-btn" class="interactive-btn resume-btn">Resume Flight Control</button>
     </div>
 
     <!-- VIEWPORT 1: COCKPIT GAME -->
@@ -137,14 +137,14 @@
             <span class="launch-subtitle mono">Flight Navigation Engaged</span>
             <h2 class="launch-title">COCKPIT ONLINE</h2>
             <div class="launch-buttons-row" style="display: flex; gap: 0.75rem; margin-top: 0.75rem;">
-              <button id="btn-splash-launch" class="interactive-btn launch-btn" style="margin-top: 0;" aria-label="Activate Ship Fusion Engines">
-                <svg xmlns="http://www.w3.org/2000/svg" class="launch-btn-icon" viewBox="0 0 24 24" fill="currentColor">
+              <button type="button" id="btn-splash-launch" class="interactive-btn launch-btn" style="margin-top: 0;" aria-label="Activate Ship Fusion Engines">
+                <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="launch-btn-icon" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z" />
                 </svg>
                 <span>STANDARD FLIGHT</span>
               </button>
-              <button id="btn-daily-launch" class="interactive-btn launch-btn" style="margin-top: 0; background-color: var(--color-pink);" aria-label="Activate Daily Seeded Run">
-                <svg xmlns="http://www.w3.org/2000/svg" class="launch-btn-icon" viewBox="0 0 24 24" fill="currentColor">
+              <button type="button" id="btn-daily-launch" class="interactive-btn launch-btn" style="margin-top: 0; background-color: var(--color-pink);" aria-label="Activate Daily Seeded Run">
+                <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="launch-btn-icon" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
                 </svg>
                 <span>DAILY CHALLENGE</span>
@@ -180,7 +180,7 @@
                   <span id="game-over-best" class="stat-value text-cyan">00000</span>
                 </div>
               </div>
-              <button id="game-over-retry" class="interactive-btn retry-btn">RE-LAUNCH VESSEL</button>
+              <button type="button" id="game-over-retry" class="interactive-btn retry-btn">RE-LAUNCH VESSEL</button>
             </div>
           </div>
 
@@ -194,7 +194,7 @@
 
         <!-- Cockpit Quick Launch Bar -->
         <div class="cockpit-footer">
-          <button id="btn-play" class="interactive-btn cockpit-reset-btn" aria-label="Reset flight path run">
+          <button type="button" id="btn-play" class="interactive-btn cockpit-reset-btn" aria-label="Reset flight path run">
             <span>Reset Run</span>
           </button>
           <span id="danger-warning" class="danger-warning-badge mono" role="alert">
@@ -238,7 +238,7 @@
                 Increases internal shielding parameters, allowing your craft to withstand hull impacts. Maximum Limit: 10.
               </p>
             </div>
-            <button id="buy-shield-btn" class="interactive-btn upgrade-buy-btn" aria-label="Purchase Reinforced Frame Upgrade">
+            <button type="button" id="buy-shield-btn" class="interactive-btn upgrade-buy-btn" aria-label="Purchase Reinforced Frame Upgrade">
               <span id="buy-shield-label">Install Hardware Upgrade</span>
               <span id="buy-shield-cost" class="upgrade-cost mono">10 Cores</span>
             </button>
@@ -255,7 +255,7 @@
                 Amplifies core collection reach, pulling passing energy fields towards your ship automatically. Maximum Limit: 10.
               </p>
             </div>
-            <button id="buy-magnet-btn" class="interactive-btn upgrade-buy-btn" aria-label="Purchase Gravity Magnet Upgrade">
+            <button type="button" id="buy-magnet-btn" class="interactive-btn upgrade-buy-btn" aria-label="Purchase Gravity Magnet Upgrade">
               <span id="buy-magnet-label">Install Hardware Upgrade</span>
               <span id="buy-magnet-cost" class="upgrade-cost mono">15 Cores</span>
             </button>
@@ -272,7 +272,7 @@
                 Improves tether range tolerances R_max on navigation nodes. Maximum Limit: 10.
               </p>
             </div>
-            <button id="buy-tether-btn" class="interactive-btn upgrade-buy-btn" aria-label="Purchase Tether Extender Upgrade">
+            <button type="button" id="buy-tether-btn" class="interactive-btn upgrade-buy-btn" aria-label="Purchase Tether Extender Upgrade">
               <span id="buy-tether-label">Install Hardware Upgrade</span>
               <span id="buy-tether-cost" class="upgrade-cost mono">20 Cores</span>
             </button>
@@ -289,7 +289,7 @@
                 Unlocks different visual profiles for your spacecraft shell and trail.
               </p>
             </div>
-            <button id="buy-skin-btn" class="interactive-btn upgrade-buy-btn" aria-label="Cycle Spacecraft Visual Theme">
+            <button type="button" id="buy-skin-btn" class="interactive-btn upgrade-buy-btn" aria-label="Cycle Spacecraft Visual Theme">
               <span id="buy-skin-label">Unlock Next Theme</span>
               <span id="buy-skin-cost" class="upgrade-cost mono">30 Cores</span>
             </button>

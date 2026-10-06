@@ -11,7 +11,7 @@ describe('WorldGenerator', () => {
       nodes: [],
       cores: [],
       upperWallSpline: [],
-      lowerWallSpline: []
+      lowerWallSpline: [],
     };
   });
 
@@ -29,12 +29,12 @@ describe('WorldGenerator', () => {
     map.upperWallSpline = [
       { x: 0, y: 50 },
       { x: 20, y: 70 },
-      { x: 40, y: 60 }
+      { x: 40, y: 60 },
     ];
     map.lowerWallSpline = [
       { x: 0, y: 350 },
       { x: 20, y: 330 },
-      { x: 40, y: 340 }
+      { x: 40, y: 340 },
     ];
 
     const bounds0 = WorldGenerator.getWallBoundaries(map, 0);
@@ -59,11 +59,11 @@ describe('WorldGenerator', () => {
   test('should support interpolation after culling offsets shift starting coordinate', () => {
     map.upperWallSpline = [
       { x: 100, y: 50 },
-      { x: 120, y: 70 }
+      { x: 120, y: 70 },
     ];
     map.lowerWallSpline = [
       { x: 100, y: 350 },
-      { x: 120, y: 330 }
+      { x: 120, y: 330 },
     ];
 
     const bounds110 = WorldGenerator.getWallBoundaries(map, 110);
@@ -74,19 +74,19 @@ describe('WorldGenerator', () => {
   test('should cull elements behind camera threshold', () => {
     map.nodes = [
       { id: 'node_1', x: 50, y: 200, radius: 20 },
-      { id: 'node_2', x: 150, y: 200, radius: 20 }
+      { id: 'node_2', x: 150, y: 200, radius: 20 },
     ];
     map.cores = [
       { id: 'core_1', x: 30, y: 200, radius: 3.5, collected: false },
-      { id: 'core_2', x: 120, y: 200, radius: 3.5, collected: false }
+      { id: 'core_2', x: 120, y: 200, radius: 3.5, collected: false },
     ];
     map.upperWallSpline = [
       { x: 40, y: 50 },
-      { x: 140, y: 50 }
+      { x: 140, y: 50 },
     ];
     map.lowerWallSpline = [
       { x: 40, y: 350 },
-      { x: 140, y: 350 }
+      { x: 140, y: 350 },
     ];
 
     WorldGenerator.cullBehindCamera(map, 100);
@@ -102,18 +102,12 @@ describe('WorldGenerator', () => {
   });
 
   test('should clear all elements when all are behind threshold', () => {
-    map.nodes = [
-      { id: 'node_1', x: 50, y: 200, radius: 20 }
-    ];
+    map.nodes = [{ id: 'node_1', x: 50, y: 200, radius: 20 }];
     map.cores = [
-      { id: 'core_1', x: 30, y: 200, radius: 3.5, collected: false }
+      { id: 'core_1', x: 30, y: 200, radius: 3.5, collected: false },
     ];
-    map.upperWallSpline = [
-      { x: 40, y: 50 }
-    ];
-    map.lowerWallSpline = [
-      { x: 40, y: 350 }
-    ];
+    map.upperWallSpline = [{ x: 40, y: 50 }];
+    map.lowerWallSpline = [{ x: 40, y: 350 }];
 
     WorldGenerator.cullBehindCamera(map, 100);
 

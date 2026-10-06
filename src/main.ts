@@ -5,7 +5,13 @@ import { GravityPivotEngine } from './engine/engine';
 import { CanvasRenderer } from './renderer/canvasRenderer';
 import { UIController } from './ui/uiController';
 import { EngineCallbacks, CalibrationState } from './types';
-import { GamePhase, ViewTab, DEFAULT_CONFIG, upgradeCost, SHIP_SKINS } from './constants';
+import {
+  GamePhase,
+  ViewTab,
+  DEFAULT_CONFIG,
+  upgradeCost,
+  SHIP_SKINS,
+} from './constants';
 import { SeededRandom } from './utils/seededRandom';
 import './style.css';
 
@@ -15,7 +21,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const synth = new SynthManager();
   const particles = new ParticleEngine(DEFAULT_CONFIG.maxParticles);
   const ui = new UIController();
-  
+
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   const renderer = new CanvasRenderer(canvas);
 
@@ -25,10 +31,16 @@ window.addEventListener('DOMContentLoaded', () => {
   const startRun = (isDaily: boolean) => {
     if (isDaily) {
       const today = new Date();
-      const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+      const seed =
+        today.getFullYear() * 10000 +
+        (today.getMonth() + 1) * 100 +
+        today.getDate();
       const prng = new SeededRandom(seed);
       engine.setRandomFn(() => prng.next());
-      ui.appendLog(`Engaging daily telemetry challenge. Seed: ${seed}`, 'alert');
+      ui.appendLog(
+        `Engaging daily telemetry challenge. Seed: ${seed}`,
+        'alert',
+      );
       ui.updatePersonalBest(saveState.dailyBest, true);
     } else {
       engine.setRandomFn(Math.random);
@@ -55,20 +67,35 @@ window.addEventListener('DOMContentLoaded', () => {
       synth.playCoreCollected();
       particles.spawn(coreX, coreY, '#fbbf24', 3, 6);
       const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
-      renderer.spawnFloatingText(coreX + cameraOffsetX, coreY, '+150', '#fbbf24');
+      renderer.spawnFloatingText(
+        coreX + cameraOffsetX,
+        coreY,
+        '+150',
+        '#fbbf24',
+      );
     },
     onSectorLeap: (sectorIndex) => {
       synth.playSectorUp();
       ui.showSectorPopup(sectorIndex);
       const scale = window.devicePixelRatio || 1;
-      renderer.spawnFloatingText(canvas.width / (2 * scale), 100, 'SECTOR CLEARED!', '#22d3ee');
+      renderer.spawnFloatingText(
+        canvas.width / (2 * scale),
+        100,
+        'SECTOR CLEARED!',
+        '#22d3ee',
+      );
     },
     onNearMiss: (combo, x, y) => {
       synth.playPing();
       particles.spawn(x, y, combo === 5 ? '#ec4899' : '#06b6d4', 4, 12);
       renderer.triggerShake(2);
       const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
-      renderer.spawnFloatingText(x + cameraOffsetX, y, `x${combo} COMBO!`, combo === 5 ? '#ec4899' : '#06b6d4');
+      renderer.spawnFloatingText(
+        x + cameraOffsetX,
+        y,
+        `x${combo} COMBO!`,
+        combo === 5 ? '#ec4899' : '#06b6d4',
+      );
     },
     onDangerProximity: (active) => {
       ui.showDangerWarning(active);
@@ -80,12 +107,25 @@ window.addEventListener('DOMContentLoaded', () => {
       const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
       renderer.spawnFloatingText(x + cameraOffsetX, y, '-1 SHIELD', '#f43f5e');
     },
-    onCrash: (x, y, finalScore, sectorReached, isNewHighScore, isNewDailyBest, dailyBest) => {
+    onCrash: (
+      x,
+      y,
+      finalScore,
+      sectorReached,
+      isNewHighScore,
+      isNewDailyBest,
+      dailyBest,
+    ) => {
       synth.playExplosion();
       particles.spawn(x, y, '#f43f5e', 8, 30);
       renderer.triggerShake(15);
       const scale = window.devicePixelRatio || 1;
-      renderer.spawnFloatingText(canvas.width / (2 * scale), canvas.height / (2 * scale) - 30, 'CRASHED!', '#f43f5e');
+      renderer.spawnFloatingText(
+        canvas.width / (2 * scale),
+        canvas.height / (2 * scale) - 30,
+        'CRASHED!',
+        '#f43f5e',
+      );
       const bestScore = saveState.highScores[0]?.score ?? finalScore;
       ui.showGameOverPanel(
         finalScore,
@@ -94,7 +134,7 @@ window.addEventListener('DOMContentLoaded', () => {
         bestScore,
         isNewDailyBest,
         dailyBest,
-        isDailyMode
+        isDailyMode,
       );
       ui.updateLeaderboardDisplay(saveState.highScores);
       ui.updatePersonalBest(isDailyMode ? dailyBest : bestScore, isDailyMode);
@@ -106,12 +146,16 @@ window.addEventListener('DOMContentLoaded', () => {
       synth.playReleaseWhoosh();
     },
     onTelemetryUpdate: (sigma, velocity, sectorProgress, sectorIndex) => {
-      ui.updateTelemetry(sigma, velocity, `${engine.getConfig().maxTetherRadius}px`);
+      ui.updateTelemetry(
+        sigma,
+        velocity,
+        `${engine.getConfig().maxTetherRadius}px`,
+      );
       ui.updateSectorProgress(sectorProgress, sectorIndex);
     },
     onLog: (message, style) => {
       ui.appendLog(message, style);
-    }
+    },
   };
 
   // 3. Setup synth parameters callback
@@ -163,7 +207,7 @@ window.addEventListener('DOMContentLoaded', () => {
       engine.getConfig().maxTetherRadius,
       engine.getSectorIndex(),
       gamePhase,
-      saveState.activeSkinId
+      saveState.activeSkinId,
     );
 
     requestAnimationFrame(gameLoop);
@@ -171,7 +215,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 6. Bind UI element updates & resizing
   const resizeGame = () => {
-    const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : canvas.width;
+    const parentWidth = canvas.parentElement
+      ? canvas.parentElement.clientWidth
+      : canvas.width;
     const parentHeight = activeTab === ViewTab.COCKPIT ? 320 : 260;
     renderer.setupResizing(parentWidth, parentHeight);
   };
@@ -188,7 +234,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const handleTetherDown = (e: MouseEvent | TouchEvent) => {
     if (e.cancelable) e.preventDefault();
     if (activeTab !== ViewTab.COCKPIT) return;
-    
+
     const phase = engine.getGamePhase();
     if (phase === GamePhase.SPLASH) return;
 
@@ -198,8 +244,15 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const touch = (e as TouchEvent).touches ? (e as TouchEvent).touches[0] : (e as MouseEvent);
-    const coords = ui.getWorldCoords(touch.clientX, touch.clientY, engine.getSparkState().x, canvas);
+    const touch = (e as TouchEvent).touches
+      ? (e as TouchEvent).touches[0]
+      : (e as MouseEvent);
+    const coords = ui.getWorldCoords(
+      touch.clientX,
+      touch.clientY,
+      engine.getSparkState().x,
+      canvas,
+    );
     engine.acquireTether(coords.worldX, coords.worldY);
   };
 
@@ -247,7 +300,9 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // Calibration Sliders bindings
-  const sSpeed = document.getElementById('slide-speed') as HTMLInputElement | null;
+  const sSpeed = document.getElementById(
+    'slide-speed',
+  ) as HTMLInputElement | null;
   if (sSpeed) {
     sSpeed.addEventListener('input', (e) => {
       const val = parseFloat((e.target as HTMLInputElement).value);
@@ -257,7 +312,9 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const sSubsteps = document.getElementById('slide-substeps') as HTMLInputElement | null;
+  const sSubsteps = document.getElementById(
+    'slide-substeps',
+  ) as HTMLInputElement | null;
   if (sSubsteps) {
     sSubsteps.addEventListener('input', (e) => {
       const val = parseInt((e.target as HTMLInputElement).value, 10);
@@ -267,7 +324,9 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const sBuffer = document.getElementById('slide-buffer') as HTMLInputElement | null;
+  const sBuffer = document.getElementById(
+    'slide-buffer',
+  ) as HTMLInputElement | null;
   if (sBuffer) {
     sBuffer.addEventListener('input', (e) => {
       const val = parseInt((e.target as HTMLInputElement).value, 10);
@@ -278,7 +337,11 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // Buy upgrade buttons bindings
-  const buyUpgrade = (btnId: string, type: 'shield' | 'magnet' | 'tether', costMultiplier: number) => {
+  const buyUpgrade = (
+    btnId: string,
+    type: 'shield' | 'magnet' | 'tether',
+    costMultiplier: number,
+  ) => {
     const btn = document.getElementById(btnId);
     if (btn) {
       btn.addEventListener('click', () => {
@@ -297,10 +360,19 @@ window.addEventListener('DOMContentLoaded', () => {
           saveState.save();
           engine.syncUpgrades();
           ui.syncUpgradeButtons(saveState);
-          ui.updateCoreCount(engine.getSparkState().collectedInRun, saveState.totalCores);
-          ui.appendLog(`Successfully installed hardware upgrade: ${type.toUpperCase()}`, 'success');
+          ui.updateCoreCount(
+            engine.getSparkState().collectedInRun,
+            saveState.totalCores,
+          );
+          ui.appendLog(
+            `Successfully installed hardware upgrade: ${type.toUpperCase()}`,
+            'success',
+          );
         } else {
-          ui.appendLog(`Insufficient core balance for upgrade: ${type.toUpperCase()}`, 'warn');
+          ui.appendLog(
+            `Insufficient core balance for upgrade: ${type.toUpperCase()}`,
+            'warn',
+          );
           btn.classList.add('flash-error');
           setTimeout(() => {
             btn.classList.remove('flash-error');
@@ -321,12 +393,17 @@ window.addEventListener('DOMContentLoaded', () => {
       const nextSkinId = saveState.unlockedSkins.length;
       if (nextSkinId >= SHIP_SKINS.length) {
         // All skins unlocked. Cycle activeSkinId through unlockedSkins.
-        const currentIdx = saveState.unlockedSkins.indexOf(saveState.activeSkinId);
+        const currentIdx = saveState.unlockedSkins.indexOf(
+          saveState.activeSkinId,
+        );
         const nextIdx = (currentIdx + 1) % saveState.unlockedSkins.length;
         saveState.activeSkinId = saveState.unlockedSkins[nextIdx];
         saveState.save();
         ui.syncSkinButton(saveState);
-        ui.appendLog(`Visual theme changed to: ${SHIP_SKINS[saveState.activeSkinId].name.toUpperCase()}`, 'info');
+        ui.appendLog(
+          `Visual theme changed to: ${SHIP_SKINS[saveState.activeSkinId].name.toUpperCase()}`,
+          'info',
+        );
       } else {
         // Still skins to unlock
         const nextSkin = SHIP_SKINS[nextSkinId];
@@ -336,10 +413,19 @@ window.addEventListener('DOMContentLoaded', () => {
           saveState.activeSkinId = nextSkin.id;
           saveState.save();
           ui.syncSkinButton(saveState);
-          ui.updateCoreCount(engine.getSparkState().collectedInRun, saveState.totalCores);
-          ui.appendLog(`Successfully unlocked visual theme: ${nextSkin.name.toUpperCase()}`, 'success');
+          ui.updateCoreCount(
+            engine.getSparkState().collectedInRun,
+            saveState.totalCores,
+          );
+          ui.appendLog(
+            `Successfully unlocked visual theme: ${nextSkin.name.toUpperCase()}`,
+            'success',
+          );
         } else {
-          ui.appendLog(`Insufficient core balance for visual theme: ${nextSkin.name.toUpperCase()}`, 'warn');
+          ui.appendLog(
+            `Insufficient core balance for visual theme: ${nextSkin.name.toUpperCase()}`,
+            'warn',
+          );
           buySkinBtn.classList.add('flash-error');
           setTimeout(() => {
             buySkinBtn.classList.remove('flash-error');
@@ -386,7 +472,7 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (activeTab !== ViewTab.COCKPIT) return;
-    
+
     const phase = engine.getGamePhase();
     if (phase === GamePhase.SPLASH) return;
 
@@ -424,14 +510,17 @@ window.addEventListener('DOMContentLoaded', () => {
 
         const phaseBefore = engine.getGamePhase();
         activeTab = ui.switchTab(tab, activeTab);
-        
+
         // Resize canvas size mapping to custom aspect ratio
         resizeGame();
 
         if (activeTab !== ViewTab.COCKPIT && phaseBefore === GamePhase.FLYING) {
           engine.setGamePhase(GamePhase.PAUSED);
           ui.showPauseOverlay(true);
-        } else if (activeTab === ViewTab.COCKPIT && phaseBefore === GamePhase.PAUSED) {
+        } else if (
+          activeTab === ViewTab.COCKPIT &&
+          phaseBefore === GamePhase.PAUSED
+        ) {
           engine.setGamePhase(GamePhase.FLYING);
           ui.showPauseOverlay(false);
         }

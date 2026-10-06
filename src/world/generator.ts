@@ -12,7 +12,7 @@ export class WorldGenerator {
     count: number,
     config: { maxTetherRadius: number; hazardProximityBuffer: number },
     guaranteeGaps: boolean,
-    randomFn: () => number = Math.random
+    randomFn: () => number = Math.random,
   ): void {
     let currentX = startX;
     const midY = 200;
@@ -20,12 +20,12 @@ export class WorldGenerator {
     for (let i = 0; i < count; i++) {
       currentX += 250 + randomFn() * 100;
       const nodeY = midY + (randomFn() * 120 - 60);
-      
+
       map.nodes.push({
         id: `node_${map.nodes.length}_${randomFn().toString(36).substring(2, 7)}`,
         x: currentX,
         y: nodeY,
-        radius: 18 + randomFn() * 6
+        radius: 18 + randomFn() * 6,
       });
 
       const coreCount = 2 + Math.floor(randomFn() * 3);
@@ -37,7 +37,7 @@ export class WorldGenerator {
           x: currentX + Math.cos(angle) * dist,
           y: nodeY + Math.sin(angle) * dist,
           radius: 3.5,
-          collected: false
+          collected: false,
         });
       }
     }
@@ -50,14 +50,15 @@ export class WorldGenerator {
         sampleX += this.STEP_RESOLUTION;
         continue;
       }
-      
+
       const closestNode = activeNodes.reduce((prev, curr) =>
-        Math.abs(curr.x - sampleX) < Math.abs(prev.x - sampleX) ? curr : prev
+        Math.abs(curr.x - sampleX) < Math.abs(prev.x - sampleX) ? curr : prev,
       );
 
       let safetyEnvelope = config.maxTetherRadius;
       if (guaranteeGaps) {
-        safetyEnvelope = config.maxTetherRadius + config.hazardProximityBuffer + 30;
+        safetyEnvelope =
+          config.maxTetherRadius + config.hazardProximityBuffer + 30;
       } else {
         safetyEnvelope = 110;
       }
@@ -67,11 +68,11 @@ export class WorldGenerator {
 
       map.upperWallSpline.push({
         x: sampleX,
-        y: Math.max(10, closestNode.y - safetyEnvelope + waveUpper)
+        y: Math.max(10, closestNode.y - safetyEnvelope + waveUpper),
       });
       map.lowerWallSpline.push({
         x: sampleX,
-        y: Math.min(390, closestNode.y + safetyEnvelope + waveLower)
+        y: Math.min(390, closestNode.y + safetyEnvelope + waveLower),
       });
 
       sampleX += this.STEP_RESOLUTION;
@@ -96,14 +97,14 @@ export class WorldGenerator {
     if (indexA < 0) {
       return {
         upperY: map.upperWallSpline[0].y,
-        lowerY: map.lowerWallSpline[0].y
+        lowerY: map.lowerWallSpline[0].y,
       };
     }
     if (indexB >= maxLen) {
       const lastIdx = maxLen - 1;
       return {
         upperY: map.upperWallSpline[lastIdx].y,
-        lowerY: map.lowerWallSpline[lastIdx].y
+        lowerY: map.lowerWallSpline[lastIdx].y,
       };
     }
 
@@ -122,7 +123,11 @@ export class WorldGenerator {
   /**
    * Checks if the given coordinates represent a wall collision.
    */
-  public static checkWallCollision(map: MapData, x: number, y: number): boolean {
+  public static checkWallCollision(
+    map: MapData,
+    x: number,
+    y: number,
+  ): boolean {
     const { upperY, lowerY } = this.getWallBoundaries(map, x);
     return y <= upperY || y >= lowerY;
   }
@@ -132,13 +137,15 @@ export class WorldGenerator {
    */
   public static cullBehindCamera(map: MapData, thresholdX: number): void {
     // Cull old nodes
-    map.nodes = map.nodes.filter(node => node.x >= thresholdX);
+    map.nodes = map.nodes.filter((node) => node.x >= thresholdX);
 
     // Cull old cores
-    map.cores = map.cores.filter(core => core.x >= thresholdX);
+    map.cores = map.cores.filter((core) => core.x >= thresholdX);
 
     // Cull spline boundaries
-    const firstKeepIndex = map.upperWallSpline.findIndex(pt => pt.x >= thresholdX);
+    const firstKeepIndex = map.upperWallSpline.findIndex(
+      (pt) => pt.x >= thresholdX,
+    );
     if (firstKeepIndex > 0) {
       map.upperWallSpline.splice(0, firstKeepIndex);
       map.lowerWallSpline.splice(0, firstKeepIndex);

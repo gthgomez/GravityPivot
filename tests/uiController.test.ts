@@ -8,7 +8,7 @@ const createMockElement = () => ({
   style: {} as Record<string, string>,
   classList: {
     add: vi.fn(),
-    remove: vi.fn()
+    remove: vi.fn(),
   },
   textContent: '',
   innerHTML: '',
@@ -26,7 +26,7 @@ const createMockElement = () => ({
   querySelector: vi.fn(() => null),
   querySelectorAll: vi.fn(() => []),
   addEventListener: vi.fn(),
-  click: vi.fn()
+  click: vi.fn(),
 });
 
 describe('UIController', () => {
@@ -40,17 +40,17 @@ describe('UIController', () => {
         if (!elementsById[id]) elementsById[id] = createMockElement();
         return elementsById[id];
       },
-      createElement: () => createMockElement()
+      createElement: () => createMockElement(),
     };
     Object.defineProperty(globalThis, 'document', {
       value: mockDocument,
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(globalThis, 'window', {
       value: { devicePixelRatio: 2 },
       writable: true,
-      configurable: true
+      configurable: true,
     });
     ui = new UIController();
   });
@@ -63,7 +63,12 @@ describe('UIController', () => {
     const canvas = {
       width: 800,
       height: 400,
-      getBoundingClientRect: () => ({ left: 10, top: 20, width: 400, height: 200 })
+      getBoundingClientRect: () => ({
+        left: 10,
+        top: 20,
+        width: 400,
+        height: 200,
+      }),
     } as unknown as HTMLCanvasElement;
 
     // sparkX = 100 -> cameraOffsetX = -100 + 150 = 50
@@ -79,7 +84,12 @@ describe('UIController', () => {
     const canvas = {
       width: 800,
       height: 400,
-      getBoundingClientRect: () => ({ left: 0, top: 0, width: 400, height: 200 })
+      getBoundingClientRect: () => ({
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 200,
+      }),
     } as unknown as HTMLCanvasElement;
 
     // sparkX = 1150 -> cameraOffsetX = -1150 + 150 = -1000
@@ -140,12 +150,22 @@ describe('UIController', () => {
   test('should switch active tab classes', () => {
     ui.switchTab(ViewTab.TERMINAL, ViewTab.COCKPIT);
 
-    expect(el('tab-cockpit').classList.remove).toHaveBeenCalledWith('tab-active');
+    expect(el('tab-cockpit').classList.remove).toHaveBeenCalledWith(
+      'tab-active',
+    );
     expect(el('tab-terminal').classList.add).toHaveBeenCalledWith('tab-active');
-    expect(el('view-cockpit').classList.remove).toHaveBeenCalledWith('view-active');
-    expect(el('view-cockpit').classList.add).toHaveBeenCalledWith('view-hidden');
-    expect(el('view-terminal').classList.remove).toHaveBeenCalledWith('view-hidden');
-    expect(el('view-terminal').classList.add).toHaveBeenCalledWith('view-active');
+    expect(el('view-cockpit').classList.remove).toHaveBeenCalledWith(
+      'view-active',
+    );
+    expect(el('view-cockpit').classList.add).toHaveBeenCalledWith(
+      'view-hidden',
+    );
+    expect(el('view-terminal').classList.remove).toHaveBeenCalledWith(
+      'view-hidden',
+    );
+    expect(el('view-terminal').classList.add).toHaveBeenCalledWith(
+      'view-active',
+    );
   });
 
   // --- HUD sync ---
@@ -242,7 +262,7 @@ describe('UIController', () => {
     el('leaderboard-list').appendChild = vi.fn();
     ui.updateLeaderboardDisplay([
       { score: 500, sector: 2, date: 'Oct 6' },
-      { score: 300, sector: 1, date: 'Oct 5' }
+      { score: 300, sector: 1, date: 'Oct 5' },
     ]);
     expect(el('leaderboard-list').appendChild).toHaveBeenCalledTimes(2);
   });
@@ -279,14 +299,22 @@ describe('UIController', () => {
   });
 
   test('should show next skin cost when skins remain locked', () => {
-    const saveState = { unlockedSkins: [0], activeSkinId: 0, totalCores: 0 } as any;
+    const saveState = {
+      unlockedSkins: [0],
+      activeSkinId: 0,
+      totalCores: 0,
+    } as any;
     ui.syncSkinButton(saveState);
     expect(el('buy-skin-label').textContent).toBe('Unlock Cyber Pink');
     expect(el('buy-skin-cost').textContent).toBe('30 Cores');
   });
 
   test('should show cycle option when all skins unlocked', () => {
-    const saveState = { unlockedSkins: [0, 1, 2, 3], activeSkinId: 0, totalCores: 0 } as any;
+    const saveState = {
+      unlockedSkins: [0, 1, 2, 3],
+      activeSkinId: 0,
+      totalCores: 0,
+    } as any;
     ui.syncSkinButton(saveState);
     expect(el('buy-skin-label').textContent).toBe('Cycle Active Theme');
     expect(el('buy-skin-cost').textContent).toBe('FREE');
@@ -299,7 +327,7 @@ describe('UIController', () => {
     expect(state).toEqual({
       subSteppingEnabled: false,
       safetyGapsEnabled: false,
-      collinearFallbackEnabled: false
+      collinearFallbackEnabled: false,
     });
 
     el('toggle-substep').checked = true;
@@ -308,7 +336,7 @@ describe('UIController', () => {
     expect(ui.getCalibrationState()).toEqual({
       subSteppingEnabled: true,
       safetyGapsEnabled: true,
-      collinearFallbackEnabled: true
+      collinearFallbackEnabled: true,
     });
   });
 });

@@ -18,7 +18,16 @@ export class ParticleEngine {
     this.maxParticles = maxParticles;
     this.pool = new Array(this.maxParticles);
     for (let i = 0; i < this.maxParticles; i++) {
-      this.pool[i] = { x: 0, y: 0, vx: 0, vy: 0, radius: 0, color: '', alpha: 0, decay: 0 };
+      this.pool[i] = {
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        radius: 0,
+        color: '',
+        alpha: 0,
+        decay: 0,
+      };
     }
   }
 
@@ -30,7 +39,13 @@ export class ParticleEngine {
     return this.pool;
   }
 
-  public spawn(x: number, y: number, color: string, speed: number = 4, count: number = 10): void {
+  public spawn(
+    x: number,
+    y: number,
+    color: string,
+    speed: number = 4,
+    count: number = 10,
+  ): void {
     for (let i = 0; i < count; i++) {
       if (this.activeCount >= this.maxParticles) return;
 

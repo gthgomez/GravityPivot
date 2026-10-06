@@ -7,14 +7,20 @@ describe('GameSaveState', () => {
     const store: Record<string, string> = {};
     const mockStorage = {
       getItem: (key: string) => store[key] || null,
-      setItem: (key: string, value: string) => { store[key] = value; },
-      removeItem: (key: string) => { delete store[key]; },
-      clear: () => { for (const key in store) delete store[key]; }
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+      clear: () => {
+        for (const key in store) delete store[key];
+      },
     };
     Object.defineProperty(globalThis, 'localStorage', {
       value: mockStorage,
       writable: true,
-      configurable: true
+      configurable: true,
     });
   });
 

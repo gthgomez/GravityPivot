@@ -72,14 +72,32 @@ export interface CalibrationState {
 export interface EngineCallbacks {
   onShieldChanged(current: number, max: number): void;
   onScoreChanged(score: number, combo: number): void;
-  onCoreCollected(runCores: number, totalCores: number, coreX: number, coreY: number): void;
+  onCoreCollected(
+    runCores: number,
+    totalCores: number,
+    coreX: number,
+    coreY: number,
+  ): void;
   onSectorLeap(sectorIndex: number): void;
   onNearMiss(combo: number, x: number, y: number): void;
   onDangerProximity(active: boolean): void;
   onShieldBounce(shield: number, x: number, y: number): void;
-  onCrash(x: number, y: number, finalScore: number, sectorReached: number, isNewHighScore: boolean, isNewDailyBest: boolean, dailyBest: number): void;
+  onCrash(
+    x: number,
+    y: number,
+    finalScore: number,
+    sectorReached: number,
+    isNewHighScore: boolean,
+    isNewDailyBest: boolean,
+    dailyBest: number,
+  ): void;
   onTetherAcquired(nodeId: string): void;
   onTetherReleased(): void;
-  onTelemetryUpdate(sigma: string, velocity: string, sectorProgress: number, sectorIndex: number): void;
+  onTelemetryUpdate(
+    sigma: string,
+    velocity: string,
+    sectorProgress: number,
+    sectorIndex: number,
+  ): void;
   onLog(message: string, style: 'info' | 'warn' | 'alert' | 'success'): void;
 }
