@@ -58,6 +58,9 @@ window.addEventListener('DOMContentLoaded', () => {
     );
     engine.setGamePhase(GamePhase.FLYING);
     ui.showLaunchOverlay(false);
+    ui.showPauseOverlay(false);
+    ui.hideGameOverPanel();
+    resetFrameClock();
     synth.init();
     synth.resumeContext();
   };
@@ -188,23 +191,29 @@ window.addEventListener('DOMContentLoaded', () => {
     const elapsed = Math.min((timestamp - lastTime) / 1000, 0.1);
     lastTime = timestamp;
 
-    const gamePhase = engine.getGamePhase();
-
-    if (gamePhase === GamePhase.FLYING) {
+    if (engine.getGamePhase() === GamePhase.FLYING) {
       accumulator += elapsed;
       // Read calibration dynamic parameters from UI once per frame
       const currentCal = ui.getCalibrationState();
       engine.updateCalibration(currentCal);
 
-      while (accumulator >= physicsTimeStep) {
+      while (
+        accumulator >= physicsTimeStep &&
+        engine.getGamePhase() === GamePhase.FLYING
+      ) {
         engine.physicsTick(physicsTimeStep);
         accumulator -= physicsTimeStep;
       }
-      // Update synth dynamic audio parameters based on speed, combo, and sector
-      const spark = engine.getSparkState();
-      const speed = Math.hypot(spark.vx, spark.vy);
-      synth.updateParams(speed / 12, spark.combo, engine.getSectorIndex());
+      if (engine.getGamePhase() === GamePhase.FLYING) {
+        // Update synth dynamic audio parameters based on speed, combo, and sector
+        const spark = engine.getSparkState();
+        const speed = Math.hypot(spark.vx, spark.vy);
+        synth.updateParams(speed / 12, spark.combo, engine.getSectorIndex());
+      } else {
+        accumulator = 0;
+      }
     } else {
+      accumulator = 0;
       // Still update particles on splash/pause/game-over screens
       particles.update();
     }
@@ -218,7 +227,7 @@ window.addEventListener('DOMContentLoaded', () => {
       particles,
       engine.getConfig().maxTetherRadius,
       engine.getSectorIndex(),
-      gamePhase,
+      engine.getGamePhase(),
       saveState.activeSkinId,
     );
 
@@ -235,6 +244,46 @@ window.addEventListener('DOMContentLoaded', () => {
   };
   window.addEventListener('resize', resizeGame);
   resizeGame(); // Initial resize alignment
+
+  function resetFrameClock(): void {
+    accumulator = 0;
+    lastTime = performance.now();
+  }
+
+  function pauseRun(): void {
+    if (engine.getGamePhase() !== GamePhase.FLYING) return;
+    engine.releaseTether();
+    engine.setGamePhase(GamePhase.PAUSED);
+    ui.showPauseOverlay(true);
+    synth.suspendContext();
+    resetFrameClock();
+  }
+
+  function resumeRun(): void {
+    if (engine.getGamePhase() !== GamePhase.PAUSED) return;
+    if (activeTab !== ViewTab.COCKPIT) {
+      activeTab = ui.switchTab(ViewTab.COCKPIT, activeTab);
+      resizeGame();
+    }
+    engine.setGamePhase(GamePhase.FLYING);
+    ui.showPauseOverlay(false);
+    resetFrameClock();
+    if (!synth.getIsMuted()) synth.resumeContext();
+  }
+
+  function resetToSplash(): void {
+    engine.releaseTether();
+    engine.initializeLevel(runContext);
+    ui.updateCoreCount(
+      engine.getSparkState().collectedInRun,
+      saveState.totalCores,
+    );
+    ui.hideGameOverPanel();
+    ui.showLaunchOverlay(true);
+    ui.showPauseOverlay(false);
+    synth.suspendContext();
+    resetFrameClock();
+  }
 
   ui.syncUpgradeButtons(saveState);
   ui.syncSkinButton(saveState);
@@ -298,16 +347,14 @@ window.addEventListener('DOMContentLoaded', () => {
   const btnPlay = document.getElementById('btn-play');
   if (btnPlay) {
     btnPlay.addEventListener('click', () => {
-      ui.showLaunchOverlay(true);
-      ui.showPauseOverlay(false);
+      resetToSplash();
     });
   }
 
   const resumeBtn = document.getElementById('resume-btn');
   if (resumeBtn) {
     resumeBtn.addEventListener('click', () => {
-      const tabCockpit = document.getElementById('tab-cockpit');
-      if (tabCockpit) tabCockpit.click();
+      resumeRun();
     });
   }
 
@@ -501,13 +548,7 @@ window.addEventListener('DOMContentLoaded', () => {
       engine.acquireTether();
     }
     if (e.code === 'KeyR') {
-      engine.initializeLevel(runContext);
-      ui.updateCoreCount(
-        engine.getSparkState().collectedInRun,
-        saveState.totalCores,
-      );
-      ui.showLaunchOverlay(true);
-      ui.showPauseOverlay(false);
+      resetToSplash();
     }
   });
 
@@ -531,14 +572,12 @@ window.addEventListener('DOMContentLoaded', () => {
         resizeGame();
 
         if (activeTab !== ViewTab.COCKPIT && phaseBefore === GamePhase.FLYING) {
-          engine.setGamePhase(GamePhase.PAUSED);
-          ui.showPauseOverlay(true);
+          pauseRun();
         } else if (
           activeTab === ViewTab.COCKPIT &&
           phaseBefore === GamePhase.PAUSED
         ) {
-          engine.setGamePhase(GamePhase.FLYING);
-          ui.showPauseOverlay(false);
+          resumeRun();
         }
 
         ui.appendLog(`Switched HUD interface view to ${tab}.`, 'info');
@@ -555,12 +594,11 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       if (engine.getGamePhase() === GamePhase.FLYING) {
-        engine.setGamePhase(GamePhase.PAUSED);
-        ui.showPauseOverlay(true);
+        pauseRun();
       }
       synth.suspendContext();
     } else {
-      if (!synth.getIsMuted()) {
+      if (engine.getGamePhase() === GamePhase.FLYING && !synth.getIsMuted()) {
         synth.resumeContext();
       }
     }

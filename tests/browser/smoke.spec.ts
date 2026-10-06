@@ -63,3 +63,66 @@ test('touch input acquires and releases an anchor', async ({
   );
   await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
 });
+
+test('pause, navigation, resume, and reset use consistent run transitions', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'Activate Ship Fusion Engines' })
+    .click();
+  await page
+    .getByRole('button', { name: 'Navigate to Upgrades Terminal' })
+    .click();
+  await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '1');
+
+  await page.getByRole('button', { name: 'Navigate to Cockpit View' }).click();
+  await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '0');
+  await page.locator('#btn-play').click();
+  await expect(page.locator('#launch-prompt-overlay')).toHaveCSS(
+    'opacity',
+    '1',
+  );
+  await expect(page.locator('#hud-score')).toHaveText('00000');
+  await page.waitForTimeout(200);
+  await expect(page.locator('#hud-score')).toHaveText('00000');
+
+  await page
+    .getByRole('button', { name: 'Activate Ship Fusion Engines' })
+    .click();
+  await page.keyboard.press('KeyR');
+  await expect(page.locator('#launch-prompt-overlay')).toHaveCSS(
+    'opacity',
+    '1',
+  );
+  await expect(page.locator('#hud-score')).toHaveText('00000');
+});
+
+test('synthetic visibility events pause and resume only on explicit action', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'Activate Ship Fusion Engines' })
+    .click();
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', {
+      configurable: true,
+      value: true,
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '1');
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', {
+      configurable: true,
+      value: false,
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '1');
+  await page.getByRole('button', { name: 'Resume Flight Control' }).click();
+  await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '0');
+});
