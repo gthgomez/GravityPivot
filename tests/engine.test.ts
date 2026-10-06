@@ -310,4 +310,189 @@ describe('GravityPivotEngine', () => {
       150
     );
   });
+
+  // --- Touch / pointer control path (tap-coordinate tether acquisition) ---
+
+  test('should acquire tether on node tapped within proximity radius (touch path)', () => {
+    const map = engine.getMapData() as any;
+    map.nodes = [
+      { id: 'node_tap', x: 250, y: 200, radius: 20 }
+    ];
+
+    const spark = engine.getSparkState() as any;
+    spark.x = 100;
+    spark.y = 200;
+    spark.vx = 6;
+    spark.vy = 0;
+
+    // Tap at (240, 200): within 80px of node, node within 180px of player
+    engine.acquireTether(240, 200);
+
+    expect(engine.getSparkState().flightState).toBe(FlightState.ORBITAL);
+    expect(engine.getSparkState().orbitalNodeId).toBe('node_tap');
+    expect(callbacks.onTetherAcquired).toHaveBeenCalledWith('node_tap');
+  });
+
+  test('should not tether when tapped node is beyond maxTetherRadius from player', () => {
+    const map = engine.getMapData() as any;
+    map.nodes = [
+      { id: 'node_far', x: 400, y: 200, radius: 20 }
+    ];
+
+    const spark = engine.getSparkState() as any;
+    spark.x = 100;
+    spark.y = 200;
+
+    engine.acquireTether(390, 200);
+
+    expect(engine.getSparkState().flightState).toBe(FlightState.LINEAR);
+    expect(callbacks.onTetherAcquired).not.toHaveBeenCalled();
+    expect(callbacks.onLog).toHaveBeenCalledWith(
+      expect.stringContaining('outside tether limits'),
+      'warn'
+    );
+  });
+
+  test('should fall back to player-proximity node when tap is far from all nodes', () => {
+    const map = engine.getMapData() as any;
+    map.nodes = [
+      { id: 'node_near_player', x: 250, y: 200, radius: 20 }
+    ];
+
+    const spark = engine.getSparkState() as any;
+    spark.x = 100;
+    spark.y = 200;
+
+    // Tap at (600, 50) is >80px from the only node
+    engine.acquireTether(600, 50);
+
+    expect(engine.getSparkState().flightState).toBe(FlightState.ORBITAL);
+    expect(engine.getSparkState().orbitalNodeId).toBe('node_near_player');
+  });
+
+  test('should prefer tapped node over closer player-proximity node', () => {
+    const map = engine.getMapData() as any;
+    map.nodes = [
+      { id: 'node_close', x: 200, y: 200, radius: 20 },
+      { id: 'node_tapped', x: 260, y: 210, radius: 20 }
+    ];
+
+    const spark = engine.getSparkState() as any;
+    spark.x = 100;
+    spark.y = 200;
+
+    engine.acquireTether(255, 205);
+
+    expect(engine.getSparkState().orbitalNodeId).toBe('node_tapped');
+  });
+
+  // --- Pause gating ---
+
+  test('should ignore tether acquisition while paused', () => {
+    engine.setGamePhase(GamePhase.PAUSED);
+    const map = engine.getMapData() as any;
+    map.nodes = [{ id: 'node_test', x: 200, y: 200, radius: 20 }];
+
+    engine.acquireTether();
+
+    expect(engine.getSparkState().flightState).toBe(FlightState.LINEAR);
+    expect(callbacks.onTetherAcquired).not.toHaveBeenCalled();
+  });
+
+  test('should ignore tether acquisition while crashed', () => {
+    engine.setGamePhase(GamePhase.CRASHED);
+    engine.acquireTether();
+    expect(callbacks.onTetherAcquired).not.toHaveBeenCalled();
+  });
+
+  test('should ignore tether acquisition on splash screen', () => {
+    engine.setGamePhase(GamePhase.SPLASH);
+    engine.acquireTether();
+    expect(callbacks.onTetherAcquired).not.toHaveBeenCalled();
+  });
+
+  test('should track game phase transitions', () => {
+    engine.setGamePhase(GamePhase.PAUSED);
+    expect(engine.getGamePhase()).toBe(GamePhase.PAUSED);
+    engine.setGamePhase(GamePhase.FLYING);
+    expect(engine.getGamePhase()).toBe(GamePhase.FLYING);
+  });
+
+  // --- Calibration control surface ---
+
+  test('should update base speed and rescale linear velocity', () => {
+    engine.setBaseSpeed(12);
+    expect(engine.getConfig().baseSpeed).toBe(12);
+    expect(engine.getSparkState().vx).toBe(12);
+    expect(engine.getSparkState().vy).toBe(0);
+  });
+
+  // --- Persistence integration ---
+
+  test('should persist totalCores to save state when a core is collected', () => {
+    const map = engine.getMapData() as any;
+    map.cores = [{ id: 'core_1', x: 105, y: 200, radius: 3.5, collected: false }];
+
+    const spark = engine.getSparkState() as any;
+    spark.x = 100;
+    spark.y = 200;
+
+    engine.physicsTick(1 / 60);
+
+    expect(map.cores[0].collected).toBe(true);
+    expect(saveState.totalCores).toBe(1);
+    expect(localStorage.getItem('gravity_pivot_cores_v6')).toBe('1');
+  });
+
+  // --- Repeat play (crash -> retry -> fresh run) ---
+
+  test('should fully reset run state on initializeLevel for repeat play', () => {
+    const spark = engine.getSparkState() as any;
+    spark.score = 5000;
+    spark.combo = 4;
+    spark.collectedInRun = 7;
+    spark.shield = 0;
+    spark.x = 5000;
+    spark.y = 300;
+    engine.setGamePhase(GamePhase.CRASHED);
+
+    engine.initializeLevel();
+
+    expect(engine.getGamePhase()).toBe(GamePhase.SPLASH);
+    expect(engine.getSparkState().score).toBe(0);
+    expect(engine.getSparkState().combo).toBe(1);
+    expect(engine.getSparkState().collectedInRun).toBe(0);
+    expect(engine.getSparkState().x).toBe(100);
+    expect(engine.getSparkState().y).toBe(200);
+    expect(engine.getSparkState().flightState).toBe(FlightState.LINEAR);
+    expect(engine.getSectorIndex()).toBe(1);
+    expect(engine.getRunDistance()).toBe(0);
+    expect(engine.getTrail().length).toBe(0);
+    expect(engine.getSparkState().shield).toBe(engine.getSparkState().maxShield);
+  });
+
+  test('should re-enable controls after restart following a crash', () => {
+    const spark = engine.getSparkState() as any;
+    spark.shield = 1;
+
+    const map = engine.getMapData() as any;
+    map.upperWallSpline = [{ x: 0, y: 150 }, { x: 100, y: 150 }];
+    map.lowerWallSpline = [{ x: 0, y: 350 }, { x: 100, y: 350 }];
+    spark.x = 100;
+    spark.y = 120;
+
+    engine.physicsTick(1 / 60);
+    expect(engine.getGamePhase()).toBe(GamePhase.CRASHED);
+
+    // Retry flow: re-initialize and resume
+    engine.initializeLevel();
+    engine.setGamePhase(GamePhase.FLYING);
+
+    const freshMap = engine.getMapData() as any;
+    freshMap.nodes = [{ id: 'node_test', x: 200, y: 200, radius: 20 }];
+    engine.acquireTether();
+
+    expect(engine.getSparkState().flightState).toBe(FlightState.ORBITAL);
+    expect(callbacks.onTetherAcquired).toHaveBeenCalled();
+  });
 });
