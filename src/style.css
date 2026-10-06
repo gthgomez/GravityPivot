@@ -397,6 +397,10 @@ canvas#game-canvas:focus-visible {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
 }
 
+.canvas-card.run-active .hud-secondary {
+  display: none;
+}
+
 /* HUD Info Bar */
 .hud-info-bar {
   background-color: rgba(2, 6, 12, 0.9);

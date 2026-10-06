@@ -13,6 +13,7 @@ export class ParticleEngine {
   private maxParticles: number;
   private pool: Particle[];
   private activeCount: number = 0;
+  private reducedMotion = false;
 
   constructor(maxParticles: number = 150) {
     this.maxParticles = maxParticles;
@@ -35,6 +36,10 @@ export class ParticleEngine {
     return this.activeCount;
   }
 
+  public setReducedMotion(enabled: boolean): void {
+    this.reducedMotion = enabled;
+  }
+
   public getPool(): ReadonlyArray<Particle> {
     return this.pool;
   }
@@ -46,7 +51,10 @@ export class ParticleEngine {
     speed: number = 4,
     count: number = 10,
   ): void {
-    for (let i = 0; i < count; i++) {
+    const particleCount = this.reducedMotion
+      ? Math.max(1, Math.ceil(count * 0.4))
+      : count;
+    for (let i = 0; i < particleCount; i++) {
       if (this.activeCount >= this.maxParticles) return;
 
       const angle = Math.random() * Math.PI * 2;

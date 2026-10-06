@@ -1,6 +1,11 @@
 import { SparkState, MapData, TrailBuffer } from '../types';
 import { ParticleEngine } from '../effects/particles';
-import { FlightState, GamePhase, SHIP_SKINS } from '../constants';
+import {
+  DEFAULT_CONFIG,
+  FlightState,
+  GamePhase,
+  SHIP_SKINS,
+} from '../constants';
 import { WORLD_VIEWPORT_HEIGHT } from '../constants';
 import {
   cameraOffsetForSpark,
@@ -303,12 +308,19 @@ export class CanvasRenderer {
         (n) => n.id === spark.orbitalNodeId,
       );
       if (targetNode) {
+        const tension = Math.min(
+          1,
+          Math.abs(spark.angularSpeed) / DEFAULT_CONFIG.maxAngularSpeed,
+        );
         this.ctx.beginPath();
         this.ctx.moveTo(spark.x, spark.y);
         this.ctx.lineTo(targetNode.x, targetNode.y);
-        this.ctx.strokeStyle = '#22d3ee';
-        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = `rgba(34, 211, 238, ${0.6 + tension * 0.4})`;
+        this.ctx.lineWidth = 1.5 + tension * 2;
         this.ctx.setLineDash([4, 4]);
+        this.ctx.lineDashOffset = this.reducedMotion
+          ? 0
+          : -(performance.now() / 80) % 8;
         this.ctx.stroke();
         this.ctx.setLineDash([]);
       }

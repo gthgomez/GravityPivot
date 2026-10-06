@@ -50,6 +50,7 @@ window.addEventListener('DOMContentLoaded', () => {
       saveState.totalCores,
     );
     engine.setGamePhase(GamePhase.FLYING);
+    document.querySelector('.canvas-card')?.classList.add('run-active');
     canvas.focus({ preventScroll: true });
     ui.announceStatus(
       isDaily ? 'Daily challenge started.' : 'Standard flight started.',
@@ -124,6 +125,7 @@ window.addEventListener('DOMContentLoaded', () => {
       );
     },
     onRunEnded: (result) => {
+      document.querySelector('.canvas-card')?.classList.remove('run-active');
       ui.announceStatus('Flight ended after a collision. Results are shown.');
       const { x, y, score: finalScore, sectorReached } = result;
       const dailyContext =
@@ -303,6 +305,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   function resetToSplash(): void {
     cancelHeldInputs();
+    document.querySelector('.canvas-card')?.classList.remove('run-active');
     particles.clear();
     engine.initializeLevel(runContext, saveState.upgrades);
     ui.updateCoreCount(
@@ -325,6 +328,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let reducedMotion =
     saveState.preferences.reducedMotion ?? motionQuery.matches;
   renderer.setReducedMotion(reducedMotion);
+  particles.setReducedMotion(reducedMotion);
   document.documentElement.dataset.reducedMotion = String(reducedMotion);
 
   const debugMode =
@@ -592,6 +596,7 @@ window.addEventListener('DOMContentLoaded', () => {
       saveState.setPreference('reducedMotion', preference);
       reducedMotion = preference ?? motionQuery.matches;
       renderer.setReducedMotion(reducedMotion);
+      particles.setReducedMotion(reducedMotion);
       document.documentElement.dataset.reducedMotion = String(reducedMotion);
     });
   }
@@ -599,6 +604,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (saveState.preferences.reducedMotion !== null) return;
     reducedMotion = event.matches;
     renderer.setReducedMotion(reducedMotion);
+    particles.setReducedMotion(reducedMotion);
     document.documentElement.dataset.reducedMotion = String(reducedMotion);
   });
 

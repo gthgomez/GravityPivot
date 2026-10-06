@@ -92,4 +92,14 @@ describe('ParticleEngine', () => {
     engine.update(0.1);
     expect(engine.getActiveCount()).toBe(0);
   });
+
+  test('reduced motion keeps event feedback while using fewer particles', () => {
+    const engine = new ParticleEngine(20);
+    engine.setReducedMotion(true);
+    engine.spawn(0, 0, '#fff', 4, 5);
+    expect(engine.getActiveCount()).toBe(2);
+    engine.clear();
+    engine.spawn(0, 0, '#fff', 4, 1);
+    expect(engine.getActiveCount()).toBe(1);
+  });
 });

@@ -94,6 +94,8 @@ test('pause, navigation, resume, and reset use consistent run transitions', asyn
   await page
     .getByRole('button', { name: 'Activate Ship Fusion Engines' })
     .click();
+  await expect(page.locator('#hud-personal-best')).toBeHidden();
+  await expect(page.locator('#hud-run-cores')).toBeHidden();
   await page
     .getByRole('button', { name: 'Navigate to Upgrades Terminal' })
     .click();
@@ -102,6 +104,7 @@ test('pause, navigation, resume, and reset use consistent run transitions', asyn
   await page.getByRole('button', { name: 'Navigate to Cockpit View' }).click();
   await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '0');
   await page.locator('#btn-play').click();
+  await expect(page.locator('#hud-personal-best')).toBeVisible();
   await expect(page.locator('#launch-prompt-overlay')).toHaveCSS(
     'opacity',
     '1',
