@@ -240,7 +240,8 @@ Split into two PRs if pointer and accessibility review become substantial. **Mod
 
 - [x] Recheck open issues/PRs and compare the stale branch tree. No backlog items were created because that writes to GitHub; `ci/github-actions` has no unique tree differences but remains undeleted.
 - [x] Add grouped weekly npm updates and GitHub Actions update handling that preserves full SHA pins.
-- [ ] Observe successful PR checks named `verify` and `browser-smoke`, then configure a `main` ruleset with zero required approvals, PRs, conversation resolution, no force pushes/deletion, and an admin bypass.
+- [x] Observe successful PR checks named `verify` and `browser-smoke` on draft PR #4.
+- [ ] Configure a `main` ruleset with zero required approvals, PRs, conversation resolution, no force pushes/deletion, and an admin bypass.
 - [ ] Enable available Dependabot/security, secret scanning/push protection, and optionally CodeQL; verify actual remote state.
 - [x] Correct SECURITY wording: vulnerability status does not depend on license; keep reporting terms consistent with the stated support policy.
 - [x] Reconcile GDD with max upgrades 10, shared exponential costs, 2–4 generated cores, actual run rules, controls, and testing scope; measured coverage floors are enforced.
