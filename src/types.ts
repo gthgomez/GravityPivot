@@ -91,12 +91,7 @@ export interface RunResult {
 export interface EngineCallbacks {
   onShieldChanged(current: number, max: number): void;
   onScoreChanged(score: number, combo: number): void;
-  onCoreCollected(
-    runCores: number,
-    totalCores: number,
-    coreX: number,
-    coreY: number,
-  ): void;
+  onCoreCollected(runCores: number, coreX: number, coreY: number): void;
   onSectorLeap(sectorIndex: number): void;
   onNearMiss(combo: number, x: number, y: number): void;
   onDangerProximity(active: boolean): void;

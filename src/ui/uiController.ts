@@ -403,7 +403,7 @@ export class UIController {
   }
 
   public updateLeaderboardDisplay(
-    highScores: Array<{ score: number; sector: number; date: string }>,
+    highScores: readonly { score: number; sector: number; date: string }[],
   ): void {
     const container = this.elements['leaderboard-list'];
     if (!container) return;

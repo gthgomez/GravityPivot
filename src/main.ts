@@ -6,13 +6,7 @@ import { createDailyContext } from './engine/runRules';
 import { CanvasRenderer } from './renderer/canvasRenderer';
 import { UIController } from './ui/uiController';
 import { EngineCallbacks, CalibrationState, RunContext } from './types';
-import {
-  GamePhase,
-  ViewTab,
-  DEFAULT_CONFIG,
-  upgradeCost,
-  SHIP_SKINS,
-} from './constants';
+import { GamePhase, ViewTab, DEFAULT_CONFIG, SHIP_SKINS } from './constants';
 import './style.css';
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -50,7 +44,7 @@ window.addEventListener('DOMContentLoaded', () => {
       ui.appendLog('Standard navigation path loaded.', 'info');
       ui.updatePersonalBest(saveState.highScores[0]?.score ?? 0, false);
     }
-    engine.initializeLevel(runContext);
+    engine.initializeLevel(runContext, saveState.upgrades);
     ui.updateCoreCount(
       engine.getSparkState().collectedInRun,
       saveState.totalCores,
@@ -72,7 +66,8 @@ window.addEventListener('DOMContentLoaded', () => {
     onScoreChanged: (score, combo) => {
       ui.updateScore(score, combo);
     },
-    onCoreCollected: (runCores, totalCores, coreX, coreY) => {
+    onCoreCollected: (runCores, coreX, coreY) => {
+      const totalCores = saveState.awardCores(1);
       ui.updateCoreCount(runCores, totalCores);
       synth.playCoreCollected();
       particles.spawn(coreX, coreY, '#fbbf24', 3, 6);
@@ -148,7 +143,7 @@ window.addEventListener('DOMContentLoaded', () => {
             dailyContext.challengeId,
             dailyContext.rulesVersion,
           )
-        : saveState.dailyBest;
+        : 0;
       const bestScore = endedInDaily
         ? dailyBest
         : (saveState.highScores[0]?.score ?? finalScore);
@@ -202,7 +197,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 4. Initialize engine
   const calibration: CalibrationState = ui.getCalibrationState();
-  const engine = new GravityPivotEngine(saveState, callbacks, calibration);
+  const engine = new GravityPivotEngine(
+    saveState.upgrades,
+    callbacks,
+    calibration,
+  );
 
   // 5. Game loop setup
   let lastTime = performance.now();
@@ -293,7 +292,7 @@ window.addEventListener('DOMContentLoaded', () => {
   function resetToSplash(): void {
     particles.clear();
     engine.releaseTether();
-    engine.initializeLevel(runContext);
+    engine.initializeLevel(runContext, saveState.upgrades);
     ui.updateCoreCount(
       engine.getSparkState().collectedInRun,
       saveState.totalCores,
@@ -426,28 +425,12 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // Buy upgrade buttons bindings
-  const buyUpgrade = (
-    btnId: string,
-    type: 'shield' | 'magnet' | 'tether',
-    costMultiplier: number,
-  ) => {
+  const buyUpgrade = (btnId: string, type: 'shield' | 'magnet' | 'tether') => {
     const btn = document.getElementById(btnId);
     if (btn) {
       btn.addEventListener('click', () => {
-        let level = 1;
-        if (type === 'shield') level = saveState.shieldLvl;
-        else if (type === 'magnet') level = saveState.magnetLvl;
-        else if (type === 'tether') level = saveState.tetherLvl;
-
-        const cost = upgradeCost(costMultiplier, level);
-        if (saveState.totalCores >= cost) {
-          saveState.totalCores -= cost;
-          if (type === 'shield') saveState.shieldLvl++;
-          else if (type === 'magnet') saveState.magnetLvl++;
-          else if (type === 'tether') saveState.tetherLvl++;
-
-          saveState.save();
-          engine.syncUpgrades();
+        if (saveState.purchaseUpgrade(type)) {
+          engine.syncUpgrades(saveState.upgrades);
           ui.syncUpgradeButtons(saveState);
           ui.updateCoreCount(
             engine.getSparkState().collectedInRun,
@@ -459,7 +442,7 @@ window.addEventListener('DOMContentLoaded', () => {
           );
         } else {
           ui.appendLog(
-            `Insufficient core balance for upgrade: ${type.toUpperCase()}`,
+            `Upgrade unavailable: ${type.toUpperCase()} requires more cores or is at maximum level.`,
             'warn',
           );
           btn.classList.add('flash-error');
@@ -471,55 +454,40 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  buyUpgrade('buy-shield-btn', 'shield', 10);
-  buyUpgrade('buy-magnet-btn', 'magnet', 15);
-  buyUpgrade('buy-tether-btn', 'tether', 20);
+  buyUpgrade('buy-shield-btn', 'shield');
+  buyUpgrade('buy-magnet-btn', 'magnet');
+  buyUpgrade('buy-tether-btn', 'tether');
 
   // Buy visual theme skin card binding
   const buySkinBtn = document.getElementById('buy-skin-btn');
   if (buySkinBtn) {
     buySkinBtn.addEventListener('click', () => {
-      const nextSkinId = saveState.unlockedSkins.length;
-      if (nextSkinId >= SHIP_SKINS.length) {
-        // All skins unlocked. Cycle activeSkinId through unlockedSkins.
-        const currentIdx = saveState.unlockedSkins.indexOf(
-          saveState.activeSkinId,
-        );
-        const nextIdx = (currentIdx + 1) % saveState.unlockedSkins.length;
-        saveState.activeSkinId = saveState.unlockedSkins[nextIdx];
-        saveState.save();
+      const result = saveState.purchaseNextSkin();
+      if (result === 'cycled') {
         ui.syncSkinButton(saveState);
         ui.appendLog(
           `Visual theme changed to: ${SHIP_SKINS[saveState.activeSkinId].name.toUpperCase()}`,
           'info',
         );
+      } else if (result === 'purchased') {
+        ui.syncSkinButton(saveState);
+        ui.updateCoreCount(
+          engine.getSparkState().collectedInRun,
+          saveState.totalCores,
+        );
+        ui.appendLog(
+          `Successfully unlocked visual theme: ${SHIP_SKINS[saveState.activeSkinId].name.toUpperCase()}`,
+          'success',
+        );
       } else {
-        // Still skins to unlock
-        const nextSkin = SHIP_SKINS[nextSkinId];
-        if (saveState.totalCores >= nextSkin.cost) {
-          saveState.totalCores -= nextSkin.cost;
-          saveState.unlockedSkins.push(nextSkin.id);
-          saveState.activeSkinId = nextSkin.id;
-          saveState.save();
-          ui.syncSkinButton(saveState);
-          ui.updateCoreCount(
-            engine.getSparkState().collectedInRun,
-            saveState.totalCores,
-          );
-          ui.appendLog(
-            `Successfully unlocked visual theme: ${nextSkin.name.toUpperCase()}`,
-            'success',
-          );
-        } else {
-          ui.appendLog(
-            `Insufficient core balance for visual theme: ${nextSkin.name.toUpperCase()}`,
-            'warn',
-          );
-          buySkinBtn.classList.add('flash-error');
-          setTimeout(() => {
-            buySkinBtn.classList.remove('flash-error');
-          }, 400);
-        }
+        ui.appendLog(
+          'Insufficient core balance for the next visual theme.',
+          'warn',
+        );
+        buySkinBtn.classList.add('flash-error');
+        setTimeout(() => {
+          buySkinBtn.classList.remove('flash-error');
+        }, 400);
       }
     });
   }

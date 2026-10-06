@@ -48,7 +48,7 @@ describe('GravityPivotEngine', () => {
       collinearFallbackEnabled: true,
     };
 
-    engine = new GravityPivotEngine(saveState, callbacks, calibration);
+    engine = new GravityPivotEngine(saveState.upgrades, callbacks, calibration);
     engine.setGamePhase(GamePhase.FLYING);
   });
 
@@ -433,8 +433,7 @@ describe('GravityPivotEngine', () => {
     spark.shield = 1;
     spark.maxShield = 1;
 
-    saveState.shieldLvl = 2;
-    engine.syncUpgrades();
+    engine.syncUpgrades({ shield: 2, magnet: 1, tether: 1 });
 
     expect(spark.maxShield).toBe(2);
     expect(spark.shield).toBe(2);
@@ -489,7 +488,7 @@ describe('GravityPivotEngine', () => {
 
     engine.physicsTick(1 / 60);
 
-    expect(saveState.dailyBest).toBe(0);
+    expect(saveState.getDailyChallengeBest('2026-10-06', 1)).toBe(0);
     expect(callbacks.onRunEnded).toHaveBeenCalledTimes(1);
   });
 
@@ -521,7 +520,12 @@ describe('GravityPivotEngine', () => {
     expect(callbacks.onRunEnded).toHaveBeenCalledWith(
       expect.objectContaining({ context, score: 210 }),
     );
-    expect(saveState.dailyBest).toBe(0);
+    expect(
+      saveState.getDailyChallengeBest(
+        context.challengeId,
+        context.rulesVersion,
+      ),
+    ).toBe(0);
   });
 
   test('Daily initial and extension geometry ignore upgrades and calibration', () => {
@@ -530,7 +534,8 @@ describe('GravityPivotEngine', () => {
       challengeId: '2026-10-06',
       rulesVersion: 1,
     };
-    engine.initializeLevel(context);
+    const upgradedLevels = { shield: 10, magnet: 9, tether: 8 };
+    engine.initializeLevel(context, upgradedLevels);
     const initial = JSON.stringify(engine.getMapData());
     const config = engine.getConfig();
     const extendMap = () => {
@@ -571,10 +576,7 @@ describe('GravityPivotEngine', () => {
     const extension = extendMap();
     const firstReplay = replay();
 
-    saveState.shieldLvl = 10;
-    saveState.magnetLvl = 9;
-    saveState.tetherLvl = 8;
-    engine.syncUpgrades();
+    engine.syncUpgrades(upgradedLevels);
     engine.updateCalibration({
       subSteppingEnabled: false,
       safetyGapsEnabled: false,
@@ -584,7 +586,7 @@ describe('GravityPivotEngine', () => {
     expect(engine.setSubSteps(1)).toBe(false);
     expect(engine.setHazardProximityBuffer(60)).toBe(false);
 
-    engine.initializeLevel(context);
+    engine.initializeLevel(context, upgradedLevels);
     expect(JSON.stringify(engine.getMapData())).toBe(initial);
     expect(extendMap()).toBe(extension);
     expect(replay()).toBe(firstReplay);
@@ -777,8 +779,9 @@ describe('GravityPivotEngine', () => {
     engine.physicsTick(1 / 60);
 
     expect(map.cores[0].collected).toBe(true);
-    expect(saveState.totalCores).toBe(1);
-    expect(localStorage.getItem('gravity_pivot_cores_v6')).toBe('1');
+    expect(engine.getSparkState().collectedInRun).toBe(1);
+    expect(callbacks.onCoreCollected).toHaveBeenCalledTimes(1);
+    expect(saveState.totalCores).toBe(0);
   });
 
   // --- Repeat play (crash -> retry -> fresh run) ---

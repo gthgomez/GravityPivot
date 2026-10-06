@@ -200,3 +200,71 @@ test('Daily identity is common across timezones and owned upgrades', async ({
   expect(observations[0].challenge).toBe(observations[1].challenge);
   expect(observations.map(({ best }) => best)).toEqual(['00000', '00000']);
 });
+
+test('v6 progression migrates once, purchases persist, and refresh restores it', async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    localStorage.setItem('gravity_pivot_cores_v6', '100');
+    localStorage.setItem('gravity_pivot_shieldLvl_v6', '1');
+    localStorage.setItem('gravity_pivot_magnetLvl_v6', '1');
+    localStorage.setItem('gravity_pivot_tetherLvl_v6', '1');
+    localStorage.setItem('gravity_pivot_unlockedSkins_v6', '[0]');
+    localStorage.setItem('gravity_pivot_activeSkinId_v6', '0');
+  });
+  await page.goto('http://127.0.0.1:4173/');
+  await expect(page.locator('#shop-cores-count')).toHaveText('100');
+  await expect(page.locator('#tab-terminal')).toBeVisible();
+  await page.locator('#tab-terminal').click();
+  await expect(page.locator('#upg-shield-level')).toHaveText('Lvl 1');
+  await page.locator('#buy-shield-btn').click();
+  await expect(page.locator('#upg-shield-level')).toHaveText('Lvl 2');
+  await page.locator('#buy-skin-btn').click();
+  await expect(page.locator('#upg-skin-name')).toHaveText('CYBER PINK');
+
+  const storedBeforeRefresh = await page.evaluate(() => ({
+    save: localStorage.getItem('gravity_pivot_save'),
+    legacyCores: localStorage.getItem('gravity_pivot_cores_v6'),
+  }));
+  expect(JSON.parse(storedBeforeRefresh.save ?? '{}').totalCores).toBe(60);
+  expect(storedBeforeRefresh.legacyCores).toBe('100');
+  await page.reload();
+  await page.locator('#tab-terminal').click();
+  await expect(page.locator('#shop-cores-count')).toHaveText('60');
+  await expect(page.locator('#upg-shield-level')).toHaveText('Lvl 2');
+  await expect(page.locator('#upg-skin-name')).toHaveText('CYBER PINK');
+  await context.close();
+});
+
+test('storage denial does not prevent the app from launching', async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.addInitScript(() => {
+    const getItem = Storage.prototype.getItem;
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.getItem = function (key: string) {
+      if (key.startsWith('gravity_pivot_')) throw new Error('storage denied');
+      return getItem.call(this, key);
+    };
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.startsWith('gravity_pivot_')) throw new Error('storage denied');
+      return setItem.call(this, key, value);
+    };
+  });
+  await page.goto('http://127.0.0.1:4173/');
+  await page
+    .getByRole('button', { name: 'Activate Ship Fusion Engines' })
+    .click();
+  expect(pageErrors).toEqual([]);
+  await expect(page.locator('#launch-prompt-overlay')).toHaveCSS(
+    'opacity',
+    '0',
+  );
+  await context.close();
+});

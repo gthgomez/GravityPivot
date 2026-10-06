@@ -1,4 +1,3 @@
-import { GameSaveState } from '../state/saveState';
 import { WorldGenerator } from '../world/generator';
 import { resolveRunRules, RunRules, UpgradeLevels } from './runRules';
 import { SeededRandom } from '../utils/seededRandom';
@@ -16,9 +15,9 @@ import {
 import { FlightState, GamePhase, DEFAULT_CONFIG, EPSILON } from '../constants';
 
 export class GravityPivotEngine {
-  private saveState: GameSaveState;
   private callbacks: EngineCallbacks;
   private calibration: CalibrationState;
+  private ownedUpgradeLevels: UpgradeLevels;
 
   private spark!: SparkState;
   private mapData: MapData = {
@@ -59,11 +58,11 @@ export class GravityPivotEngine {
   private simulationTimeMs = 0;
 
   constructor(
-    saveState: GameSaveState,
+    ownedUpgrades: UpgradeLevels,
     callbacks: EngineCallbacks,
     calibration: CalibrationState,
   ) {
-    this.saveState = saveState;
+    this.ownedUpgradeLevels = { ...ownedUpgrades };
     this.callbacks = callbacks;
     this.calibration = calibration;
 
@@ -136,8 +135,11 @@ export class GravityPivotEngine {
     );
   }
 
-  public syncUpgrades(): void {
+  public syncUpgrades(
+    ownedUpgrades: UpgradeLevels = this.ownedUpgradeLevels,
+  ): void {
     if (this.runContext.mode === 'DAILY') return;
+    this.ownedUpgradeLevels = { ...ownedUpgrades };
     const rules = resolveRunRules(
       { mode: 'STANDARD' },
       this.ownedUpgrades(),
@@ -147,11 +149,7 @@ export class GravityPivotEngine {
   }
 
   private ownedUpgrades(): UpgradeLevels {
-    return {
-      shield: this.saveState.shieldLvl,
-      magnet: this.saveState.magnetLvl,
-      tether: this.saveState.tetherLvl,
-    };
+    return { ...this.ownedUpgradeLevels };
   }
 
   private currentSettings() {
@@ -219,8 +217,12 @@ export class GravityPivotEngine {
     return true;
   }
 
-  public initializeLevel(context: RunContext = this.runContext): void {
+  public initializeLevel(
+    context: RunContext = this.runContext,
+    ownedUpgrades: UpgradeLevels = this.ownedUpgradeLevels,
+  ): void {
     this.runContext = { ...context };
+    this.ownedUpgradeLevels = { ...ownedUpgrades };
     this.runRules = resolveRunRules(
       this.runContext,
       this.ownedUpgrades(),
@@ -484,14 +486,10 @@ export class GravityPivotEngine {
       if (finalDistance < 14) {
         core.collected = true;
         this.spark.collectedInRun++;
-        this.saveState.totalCores++;
-        this.saveState.save();
-
         this.spark.score += 150 * this.spark.combo;
         this.callbacks.onScoreChanged(this.spark.score, this.spark.combo);
         this.callbacks.onCoreCollected(
           this.spark.collectedInRun,
-          this.saveState.totalCores,
           core.x,
           core.y,
         );
