@@ -19,6 +19,17 @@ Each browser ran an 8-second Standard flight with the production build and no in
 
 The desktop container run misses the provisional 16.7 ms p95 target. The mobile emulation result meets it, but does not prove physical-device performance. Repeat both measurements on documented physical devices before making a performance claim or tuning Canvas rendering.
 
+The same viewports also expose different amounts of route ahead. At the default
+desktop viewport (1280×720, DPR 1), the 862×300 CSS canvas shows about 1,149
+world units horizontally, or 999 units in front of the ship. In Pixel 7
+emulation (412×839 CSS viewport, DPR 2.625), the 378×300 canvas shows 504 world
+units, or 354 in front of the ship. The shared transform preserves the whole
+400-unit corridor and uniform scale; it does not normalize forward visibility.
+This can change how early a player can read a route on narrow screens. Daily
+shares seed and physics rules, not identical visual information across aspect
+ratios; validate the impact in the planned human play sessions before changing
+the viewport contract.
+
 ## DOM and persistence
 
 Before the UI optimization, a six-second flight produced 367 mutations each on telemetry sigma, velocity, reach, sector label, and sector progress: about 1,835 mutations across those five elements. The progress bar changes each tick by design; the other readouts were repeatedly assigned unchanged values.

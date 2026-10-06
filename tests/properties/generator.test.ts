@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { WorldGenerator } from '../../src/world/generator';
 import { SeededRandom } from '../../src/utils/seededRandom';
 import { MapData } from '../../src/types';
+import { WORLD_VIEWPORT_CENTER } from '../../src/constants';
 
 const config = { maxTetherRadius: 180, hazardProximityBuffer: 30 };
 
@@ -24,6 +25,11 @@ describe('procedural geometry invariants', () => {
 
         const failureContext = `seed=${seed}, safety=${safety}`;
         let valid = map.upperWallSpline.length === map.lowerWallSpline.length;
+        valid &&= !WorldGenerator.checkWallCollision(
+          map,
+          100,
+          WORLD_VIEWPORT_CENTER,
+        );
         for (let i = 0; i < map.nodes.length; i++) {
           const node = map.nodes[i];
           valid &&= Number.isFinite(node.x) && Number.isFinite(node.y);

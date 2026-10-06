@@ -1,4 +1,4 @@
-import { SparkState, MapData, TrailBuffer } from '../types';
+import { SparkState, ReadonlyMapData, ReadonlyTrailBuffer } from '../types';
 import { ParticleEngine } from '../effects/particles';
 import {
   DEFAULT_CONFIG,
@@ -132,8 +132,8 @@ export class CanvasRenderer {
 
   public draw(
     spark: Readonly<SparkState>,
-    mapData: Readonly<MapData>,
-    historyTrail: Readonly<TrailBuffer>,
+    mapData: ReadonlyMapData,
+    historyTrail: ReadonlyTrailBuffer,
     particles: ParticleEngine,
     maxTetherRadius: number,
     sectorIndex: number,

@@ -4,10 +4,11 @@ import { SeededRandom } from '../utils/seededRandom';
 import {
   SparkState,
   MapData,
+  ReadonlyMapData,
   TrailPoint,
   EngineCallbacks,
   CalibrationState,
-  TrailBuffer,
+  ReadonlyTrailBuffer,
   PivotNode,
   GenerationCursor,
   RunContext,
@@ -93,11 +94,11 @@ export class GravityPivotEngine {
     return this.spark;
   }
 
-  public getMapData(): Readonly<MapData> {
+  public getMapData(): ReadonlyMapData {
     return this.mapData;
   }
 
-  public getTrail(): Readonly<TrailBuffer> {
+  public getTrail(): ReadonlyTrailBuffer {
     return {
       points: this.historyTrail,
       head: this.trailHead,

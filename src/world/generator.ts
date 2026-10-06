@@ -1,4 +1,9 @@
-import { GenerationCursor, MapData, WallBounds } from '../types';
+import {
+  GenerationCursor,
+  MapData,
+  ReadonlyMapData,
+  WallBounds,
+} from '../types';
 import {
   WORLD_VIEWPORT_CENTER,
   WORLD_VIEWPORT_HEIGHT,
@@ -118,7 +123,7 @@ export class WorldGenerator {
    * Interpolates the upper and lower wall boundaries for a given x coordinate.
    * Handles offset adjustment due to culled/sliced starting elements.
    */
-  public static getWallBoundaries(map: MapData, x: number): WallBounds {
+  public static getWallBoundaries(map: ReadonlyMapData, x: number): WallBounds {
     if (map.upperWallSpline.length === 0) {
       return { upperY: 50, lowerY: 350 };
     }
@@ -159,7 +164,7 @@ export class WorldGenerator {
    * Checks if the given coordinates represent a wall collision.
    */
   public static checkWallCollision(
-    map: MapData,
+    map: ReadonlyMapData,
     x: number,
     y: number,
   ): boolean {

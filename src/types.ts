@@ -27,6 +27,13 @@ export interface MapData {
   lowerWallSpline: SplinePoint[];
 }
 
+export interface ReadonlyMapData {
+  readonly nodes: ReadonlyArray<Readonly<PivotNode>>;
+  readonly cores: ReadonlyArray<Readonly<EnergyCore>>;
+  readonly upperWallSpline: ReadonlyArray<Readonly<SplinePoint>>;
+  readonly lowerWallSpline: ReadonlyArray<Readonly<SplinePoint>>;
+}
+
 export interface GenerationCursor {
   lastAnchorX: number;
   nextWallX: number;
@@ -48,6 +55,12 @@ export interface TrailBuffer {
   points: TrailPoint[];
   head: number;
   length: number;
+}
+
+export interface ReadonlyTrailBuffer {
+  readonly points: ReadonlyArray<Readonly<TrailPoint>>;
+  readonly head: number;
+  readonly length: number;
 }
 
 export interface SparkState {

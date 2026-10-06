@@ -42,8 +42,12 @@ with its own unqualified record space.
 
 The shared rules remove known local sources of gameplay variation, but browser
 floating-point implementations, manual clock changes, modified clients, and
-different app builds can still diverge. This is not a server-verified
-leaderboard.
+different app builds can still diverge. Aspect ratios also expose different
+amounts of route ahead while preserving the full corridor height: the current
+desktop layout shows about 999 world units ahead of the ship, while the tested
+Pixel 7 layout shows about 354. Daily therefore shares a seed and physics rules;
+it does not guarantee identical visual information on every screen size. This
+is not a server-verified leaderboard.
 
 Any later change to generation, physics, scoring, or input that affects Daily
 must receive a rules-version decision and golden seed/replay coverage.

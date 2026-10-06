@@ -179,6 +179,24 @@ describe('GravityPivotEngine', () => {
     );
   });
 
+  test('preserves the active tether anchor during a sector extension', () => {
+    const map = engine.getMapData() as any;
+    map.nodes = [{ id: 'preserved-orbit', x: 10000, y: 200, radius: 20 }];
+    const spark = engine.getSparkState() as any;
+    spark.x = 10020;
+    spark.y = 200;
+
+    engine.acquireTether();
+    expect(spark.orbitalNodeId).toBe('preserved-orbit');
+    engine.physicsTick(1 / 60);
+
+    expect(engine.getSectorIndex()).toBe(2);
+    expect(spark.flightState).toBe(FlightState.ORBITAL);
+    expect(map.nodes.some((node: any) => node.id === 'preserved-orbit')).toBe(
+      true,
+    );
+  });
+
   test('rewards one continuous near-miss across a spline-cell boundary', () => {
     const spark = engine.getSparkState() as any;
     const map = engine.getMapData() as any;
@@ -198,8 +216,14 @@ describe('GravityPivotEngine', () => {
     engine.physicsTick(1 / 60);
     expect(callbacks.onDangerProximity).toHaveBeenCalledWith(true);
 
-    WorldGenerator.cullBehindCamera(map, 20);
     spark.x = 42;
+    spark.y = 330;
+    engine.physicsTick(1 / 60);
+    expect(callbacks.onNearMiss).not.toHaveBeenCalled();
+    expect(callbacks.onDangerProximity).toHaveBeenCalledTimes(1);
+
+    WorldGenerator.cullBehindCamera(map, 60);
+    spark.x = 82;
     spark.y = 250;
 
     engine.physicsTick(1 / 60);
@@ -211,6 +235,33 @@ describe('GravityPivotEngine', () => {
     spark.x = 40;
     engine.physicsTick(1 / 60);
     expect(callbacks.onNearMiss).toHaveBeenCalledTimes(1);
+  });
+
+  test('caps the combo at five across repeated completed near-miss episodes', () => {
+    const spark = engine.getSparkState() as any;
+    const map = engine.getMapData() as any;
+    map.upperWallSpline = Array.from({ length: 51 }, (_, i) => ({
+      x: i * 20,
+      y: 150,
+    }));
+    map.lowerWallSpline = Array.from({ length: 51 }, (_, i) => ({
+      x: i * 20,
+      y: 350,
+    }));
+    map.cores = [];
+    spark.vx = 0;
+    spark.x = 20;
+
+    for (let episode = 0; episode < 8; episode++) {
+      spark.y = 170;
+      engine.physicsTick(1 / 60);
+      spark.y = 190;
+      engine.physicsTick(1 / 60);
+    }
+
+    expect(spark.combo).toBe(5);
+    expect(spark.score).toBe(6800);
+    expect(callbacks.onNearMiss).toHaveBeenCalledTimes(8);
   });
 
   test('near-miss boundary jitter rewards only after clearing the safe margin', () => {
@@ -453,6 +504,9 @@ describe('GravityPivotEngine', () => {
       { x: 0, y: 350 },
       { x: 100, y: 350 },
     ];
+    map.cores = [
+      { id: 'crash-core', x: 100, y: 200, radius: 3.5, collected: false },
+    ];
 
     spark.x = 100;
     spark.y = 120;
@@ -467,6 +521,21 @@ describe('GravityPivotEngine', () => {
       x: expect.any(Number),
       y: expect.any(Number),
     });
+
+    const scoreAfterCrash = spark.score;
+    const scoreEventsAfterCrash = vi.mocked(callbacks.onScoreChanged).mock.calls
+      .length;
+    for (let i = 0; i < 5; i++) engine.physicsTick(1 / 60);
+
+    expect(engine.getGamePhase()).toBe(GamePhase.CRASHED);
+    expect(callbacks.onRunEnded).toHaveBeenCalledTimes(1);
+    expect(callbacks.onCoreCollected).not.toHaveBeenCalled();
+    expect(callbacks.onSectorLeap).not.toHaveBeenCalled();
+    expect(vi.mocked(callbacks.onScoreChanged)).toHaveBeenCalledTimes(
+      scoreEventsAfterCrash,
+    );
+    expect(spark.score).toBe(scoreAfterCrash);
+    expect(map.cores[0].collected).toBe(false);
   });
 
   test('standard run crashes do not update the daily best', () => {

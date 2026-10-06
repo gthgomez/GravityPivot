@@ -104,6 +104,7 @@ test('pause, navigation, resume, and reset use consistent run transitions', asyn
   await page.getByRole('button', { name: 'Navigate to Cockpit View' }).click();
   await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '0');
   await page.locator('#btn-play').click();
+  await page.locator('#btn-play').click();
   await expect(page.locator('#hud-personal-best')).toBeVisible();
   await expect(page.locator('#launch-prompt-overlay')).toHaveCSS(
     'opacity',
@@ -116,6 +117,7 @@ test('pause, navigation, resume, and reset use consistent run transitions', asyn
   await page
     .getByRole('button', { name: 'Activate Ship Fusion Engines' })
     .click();
+  await page.keyboard.press('KeyR');
   await page.keyboard.press('KeyR');
   await expect(page.locator('#launch-prompt-overlay')).toHaveCSS(
     'opacity',
@@ -131,6 +133,11 @@ test('synthetic visibility events pause and resume only on explicit action', asy
   await page
     .getByRole('button', { name: 'Activate Ship Fusion Engines' })
     .click();
+  await page.waitForTimeout(350);
+  await page.keyboard.down('Space');
+  await expect(page.locator('#metric-log')).toContainText(
+    'Tether secure on orbit node',
+  );
 
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', {
@@ -140,6 +147,16 @@ test('synthetic visibility events pause and resume only on explicit action', asy
     document.dispatchEvent(new Event('visibilitychange'));
   });
   await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '1');
+  await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
+  await page.keyboard.up('Space');
+  const pausedProgress = await page
+    .locator('#sector-hud-bar')
+    .getAttribute('style');
+  await page.waitForTimeout(250);
+  await expect(page.locator('#sector-hud-bar')).toHaveAttribute(
+    'style',
+    pausedProgress ?? '',
+  );
 
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', {
@@ -149,8 +166,15 @@ test('synthetic visibility events pause and resume only on explicit action', asy
     document.dispatchEvent(new Event('visibilitychange'));
   });
   await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '1');
+  await expect(page.locator('#sector-hud-bar')).toHaveAttribute(
+    'style',
+    pausedProgress ?? '',
+  );
   await page.getByRole('button', { name: 'Resume Flight Control' }).click();
   await expect(page.locator('#pause-overlay')).toHaveCSS('opacity', '0');
+  await expect
+    .poll(() => page.locator('#sector-hud-bar').getAttribute('style'))
+    .not.toBe(pausedProgress);
 });
 
 test('resized canvas keeps the full 400-unit world at its current DPR', async ({
@@ -225,6 +249,90 @@ test('Daily identity is common across timezones and owned upgrades', async ({
   expect(observations[0].challenge).toMatch(/^Daily challenge/);
   expect(observations[0].challenge).toBe(observations[1].challenge);
   expect(observations.map(({ best }) => best)).toEqual(['00000', '00000']);
+});
+
+test('Daily crash preserves Standard scores and retry starts a fresh run', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium',
+    'The deterministic two-pulse crash route is qualified in desktop Chromium.',
+  );
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.addInitScript(() => {
+    const NativeDate = Date;
+    class FixedDate extends NativeDate {
+      constructor(value?: string | number) {
+        if (value === undefined) super('2026-01-01T12:00:00.000Z');
+        else super(value);
+      }
+
+      static now(): number {
+        return new NativeDate('2026-01-01T12:00:00.000Z').valueOf();
+      }
+    }
+    Object.defineProperty(window, 'Date', { value: FixedDate });
+    localStorage.setItem(
+      'gravity_pivot_save',
+      JSON.stringify({
+        version: 7,
+        totalCores: 0,
+        upgrades: { shield: 1, magnet: 1, tether: 1 },
+        highScores: [{ score: 900, sector: 2, date: '2026-01-01' }],
+        skins: { unlockedIds: [0], activeId: 0 },
+        preferences: { muted: true, reducedMotion: null },
+        dailyRecords: { '2026-01-01@1': 1000000 },
+      }),
+    );
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
+
+  // This fixed Daily seed crashes after a short, repeatable hold/release route.
+  for (let pulse = 0; pulse < 6; pulse++) {
+    if (
+      (await page.locator('#game-over-panel').getAttribute('aria-hidden')) ===
+      'false'
+    ) {
+      break;
+    }
+    await page.keyboard.down('Space');
+    await page.waitForTimeout(350);
+    await page.keyboard.up('Space');
+    await page.waitForTimeout(500);
+  }
+  await expect(page.locator('#game-over-panel')).toHaveAttribute(
+    'aria-hidden',
+    'false',
+    { timeout: 10000 },
+  );
+  const crashedScore = Number(
+    await page.locator('#game-over-score').innerText(),
+  );
+  expect(crashedScore).toBeLessThanOrEqual(1000000);
+  await expect(page.locator('#game-over-best')).toHaveText('1000000');
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('gravity_pivot_save') ?? '{}'),
+  );
+  expect(saved.highScores).toEqual([
+    { score: 900, sector: 2, date: '2026-01-01' },
+  ]);
+  expect(saved.dailyRecords).toEqual({ '2026-01-01@1': 1000000 });
+  expect(pageErrors).toEqual([]);
+
+  await page.getByRole('button', { name: 'RE-LAUNCH VESSEL' }).click();
+  await expect(page.locator('#game-over-panel')).toHaveAttribute(
+    'aria-hidden',
+    'true',
+  );
+  await expect(page.locator('#launch-prompt-overlay')).toHaveCSS(
+    'opacity',
+    '0',
+  );
+  await expect(page.locator('#metric-log')).toContainText(
+    'Daily challenge 2026-01-01, rules v1.',
+  );
 });
 
 test('v6 progression migrates once, purchases persist, and refresh restores it', async ({
