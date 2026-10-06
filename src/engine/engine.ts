@@ -52,6 +52,8 @@ export class GravityPivotEngine {
   private runContext: RunContext = { mode: 'STANDARD' };
   private randomFn: () => number = Math.random;
   private generationCursor: GenerationCursor = WorldGenerator.createCursor();
+  private nearMissEpisodeActive = false;
+  private dangerProximityActive = false;
 
   public setRandomFn(fn: () => number): void {
     this.randomFn = fn;
@@ -80,7 +82,6 @@ export class GravityPivotEngine {
       combo: 1,
       score: 0,
       collectedInRun: 0,
-      activeNearMisses: new Set<number>(),
       shield: 1,
       maxShield: 1,
       shieldInvulnFrames: 0,
@@ -162,7 +163,7 @@ export class GravityPivotEngine {
     this.spark.collectedInRun = 0;
     this.spark.shield = this.spark.maxShield;
     this.spark.shieldInvulnFrames = 0;
-    this.spark.activeNearMisses.clear();
+    this.cancelNearMissEpisode();
 
     this.historyTrail = new Array(DEFAULT_CONFIG.trailLength);
     this.trailHead = 0;
@@ -315,6 +316,7 @@ export class GravityPivotEngine {
     const now = performance.now();
     if (now - this.sectorCooldown < DEFAULT_CONFIG.sectorLeapCooldownMs) return;
     this.sectorCooldown = now;
+    this.cancelNearMissEpisode();
 
     const destinationX = this.spark.x + 1000;
     this.ensureWorldThrough(destinationX + 3000);
@@ -384,47 +386,50 @@ export class GravityPivotEngine {
   }
 
   private handleNearMisses(x: number, y: number): void {
-    if (this.mapData.upperWallSpline.length === 0) return;
-
-    const startX = this.mapData.upperWallSpline[0].x;
-    const stepResolution = 20;
-    const index = Math.floor((x - startX) / stepResolution);
-
-    if (index < 0 || index >= this.mapData.upperWallSpline.length) return;
+    if (this.mapData.upperWallSpline.length === 0) {
+      this.cancelNearMissEpisode();
+      return;
+    }
 
     const { upperY, lowerY } = WorldGenerator.getWallBoundaries(
       this.mapData,
       x,
     );
 
-    const distToUpper = y - upperY;
-    const distToLower = lowerY - y;
+    const minWallDistance = Math.min(y - upperY, lowerY - y);
     const dangerLimit = this.calibration.subSteppingEnabled
       ? this.config.hazardProximityBuffer
       : DEFAULT_CONFIG.hazardProximityBuffer;
-
-    const nearWall = distToUpper < dangerLimit || distToLower < dangerLimit;
-
-    this.callbacks.onDangerProximity(nearWall);
-
+    const nearWall = minWallDistance < dangerLimit;
+    this.setDangerProximity(nearWall);
     if (nearWall) {
-      if (!this.spark.activeNearMisses.has(index)) {
-        this.spark.activeNearMisses.add(index);
-      }
-    } else {
-      if (this.spark.activeNearMisses.has(index)) {
-        this.spark.activeNearMisses.delete(index);
-        this.spark.combo = Math.min(this.spark.combo + 1, 5);
-        this.spark.score += 200 * this.spark.combo;
+      this.nearMissEpisodeActive = true;
+    } else if (
+      this.nearMissEpisodeActive &&
+      minWallDistance >= dangerLimit + 5
+    ) {
+      this.nearMissEpisodeActive = false;
+      this.spark.combo = Math.min(this.spark.combo + 1, 5);
+      this.spark.score += 200 * this.spark.combo;
 
-        this.callbacks.onScoreChanged(this.spark.score, this.spark.combo);
-        this.callbacks.onNearMiss(this.spark.combo, x, y);
-        this.callbacks.onLog(
-          `Dynamic hazard proximity bonus! Combo multiplied: x${this.spark.combo}`,
-          'info',
-        );
-      }
+      this.callbacks.onScoreChanged(this.spark.score, this.spark.combo);
+      this.callbacks.onNearMiss(this.spark.combo, x, y);
+      this.callbacks.onLog(
+        `Dynamic hazard proximity bonus! Combo multiplied: x${this.spark.combo}`,
+        'info',
+      );
     }
+  }
+
+  private setDangerProximity(active: boolean): void {
+    if (active === this.dangerProximityActive) return;
+    this.dangerProximityActive = active;
+    this.callbacks.onDangerProximity(active);
+  }
+
+  private cancelNearMissEpisode(): void {
+    this.nearMissEpisodeActive = false;
+    this.setDangerProximity(false);
   }
 
   public physicsTick(dt: number): void {
@@ -472,13 +477,13 @@ export class GravityPivotEngine {
         }
       }
 
-      if (
-        WorldGenerator.checkWallCollision(
-          this.mapData,
-          this.spark.x,
-          this.spark.y,
-        )
-      ) {
+      const hitWall = WorldGenerator.checkWallCollision(
+        this.mapData,
+        this.spark.x,
+        this.spark.y,
+      );
+      if (hitWall) {
+        this.cancelNearMissEpisode();
         if (this.spark.shieldInvulnFrames <= 0) {
           this.spark.shield--;
           this.spark.combo = 1;
@@ -528,7 +533,7 @@ export class GravityPivotEngine {
       }
 
       this.updateCoresAndMagnetPull();
-      this.handleNearMisses(this.spark.x, this.spark.y);
+      if (!hitWall) this.handleNearMisses(this.spark.x, this.spark.y);
     }
 
     if (this.gamePhase === GamePhase.CRASHED) return;

@@ -3,6 +3,7 @@ import { GravityPivotEngine } from '../src/engine/engine';
 import { GameSaveState } from '../src/state/saveState';
 import { EngineCallbacks, CalibrationState } from '../src/types';
 import { FlightState, GamePhase } from '../src/constants';
+import { WorldGenerator } from '../src/world/generator';
 
 describe('GravityPivotEngine', () => {
   let saveState: GameSaveState;
@@ -178,33 +179,94 @@ describe('GravityPivotEngine', () => {
     );
   });
 
-  test('should trigger near-miss combo scoring & bonus application', () => {
+  test('rewards one continuous near-miss across a spline-cell boundary', () => {
     const spark = engine.getSparkState() as any;
     const map = engine.getMapData() as any;
-    map.upperWallSpline = [
-      { x: 0, y: 150 },
-      { x: 100, y: 150 },
-      { x: 200, y: 150 },
-    ];
-    map.lowerWallSpline = [
-      { x: 0, y: 350 },
-      { x: 100, y: 350 },
-      { x: 200, y: 350 },
-    ];
+    map.upperWallSpline = Array.from({ length: 51 }, (_, i) => ({
+      x: i * 20,
+      y: 150,
+    }));
+    map.lowerWallSpline = Array.from({ length: 51 }, (_, i) => ({
+      x: i * 20,
+      y: 350,
+    }));
 
-    spark.x = 20;
+    spark.vx = 0;
+    spark.x = 18;
     spark.y = 170;
 
     engine.physicsTick(1 / 60);
     expect(callbacks.onDangerProximity).toHaveBeenCalledWith(true);
 
-    spark.x = 30;
+    WorldGenerator.cullBehindCamera(map, 20);
+    spark.x = 42;
     spark.y = 250;
 
     engine.physicsTick(1 / 60);
     expect(callbacks.onDangerProximity).toHaveBeenCalledWith(false);
     expect(engine.getSparkState().combo).toBe(2);
-    expect(callbacks.onNearMiss).toHaveBeenCalled();
+    expect(callbacks.onNearMiss).toHaveBeenCalledTimes(1);
+    expect(callbacks.onDangerProximity).toHaveBeenCalledTimes(2);
+
+    spark.x = 40;
+    engine.physicsTick(1 / 60);
+    expect(callbacks.onNearMiss).toHaveBeenCalledTimes(1);
+  });
+
+  test('near-miss boundary jitter rewards only after clearing the safe margin', () => {
+    const spark = engine.getSparkState() as any;
+    const map = engine.getMapData() as any;
+    map.upperWallSpline = Array.from({ length: 51 }, (_, i) => ({
+      x: i * 20,
+      y: 150,
+    }));
+    map.lowerWallSpline = Array.from({ length: 51 }, (_, i) => ({
+      x: i * 20,
+      y: 350,
+    }));
+    spark.vx = 0;
+    spark.x = 20;
+    spark.y = 170;
+    engine.physicsTick(1 / 60);
+
+    spark.y = 184;
+    engine.physicsTick(1 / 60);
+    expect(callbacks.onNearMiss).not.toHaveBeenCalled();
+    spark.y = 170;
+    engine.physicsTick(1 / 60);
+    spark.y = 186;
+    engine.physicsTick(1 / 60);
+    spark.y = 190;
+    engine.physicsTick(1 / 60);
+
+    expect(callbacks.onNearMiss).toHaveBeenCalledTimes(1);
+    expect(engine.getSparkState().combo).toBe(2);
+    expect(callbacks.onDangerProximity).toHaveBeenCalledTimes(4);
+  });
+
+  test('collision cancels an active near-miss episode without impact reward', () => {
+    const spark = engine.getSparkState() as any;
+    const map = engine.getMapData() as any;
+    map.upperWallSpline = Array.from({ length: 51 }, (_, i) => ({
+      x: i * 20,
+      y: 150,
+    }));
+    map.lowerWallSpline = Array.from({ length: 51 }, (_, i) => ({
+      x: i * 20,
+      y: 350,
+    }));
+    spark.vx = 0;
+    spark.x = 20;
+    spark.y = 170;
+    spark.shield = 2;
+    engine.physicsTick(1 / 60);
+    spark.y = 150;
+    engine.physicsTick(1 / 60);
+
+    expect(engine.getSparkState().shield).toBe(1);
+    expect(engine.getSparkState().combo).toBe(1);
+    expect(callbacks.onNearMiss).not.toHaveBeenCalled();
+    expect(callbacks.onDangerProximity).toHaveBeenLastCalledWith(false);
   });
 
   test('should pull collectible cores when within magnet range', () => {

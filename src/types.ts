@@ -64,7 +64,6 @@ export interface SparkState {
   combo: number;
   score: number;
   collectedInRun: number;
-  activeNearMisses: Set<number>;
   shield: number;
   maxShield: number;
   shieldInvulnFrames: number;
