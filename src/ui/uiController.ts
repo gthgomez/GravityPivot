@@ -74,6 +74,7 @@ export class UIController {
       'leaderboard-list',
       'hud-personal-best',
       'game-over-panel',
+      'game-status',
       'game-over-score',
       'game-over-sector',
       'game-over-best',
@@ -197,6 +198,10 @@ export class UIController {
     if (overlay) {
       overlay.style.opacity = visible ? '1' : '0';
       overlay.style.pointerEvents = visible ? 'auto' : 'none';
+      overlay.setAttribute('aria-hidden', String(!visible));
+      overlay.toggleAttribute('inert', !visible);
+      if (visible)
+        (this.elements['resume-btn'] as HTMLButtonElement | null)?.focus();
     }
   }
 
@@ -205,6 +210,12 @@ export class UIController {
     if (overlay) {
       overlay.style.opacity = visible ? '1' : '0';
       overlay.style.pointerEvents = visible ? 'auto' : 'none';
+      overlay.setAttribute('aria-hidden', String(!visible));
+      overlay.toggleAttribute('inert', !visible);
+      if (visible)
+        (
+          this.elements['btn-splash-launch'] as HTMLButtonElement | null
+        )?.focus();
     }
   }
 
@@ -236,6 +247,11 @@ export class UIController {
     while (container.children.length > 25) {
       container.removeChild(container.firstChild!);
     }
+  }
+
+  public announceStatus(message: string): void {
+    const status = this.elements['game-status'];
+    if (status) status.textContent = message;
   }
 
   public syncUpgradeButtons(saveState: GameSaveState): void {
@@ -324,6 +340,8 @@ export class UIController {
       if (targetBtn) {
         targetBtn.classList.add('tab-active');
       }
+      if (curBtn) curBtn.removeAttribute('aria-current');
+      if (targetBtn) targetBtn.setAttribute('aria-current', 'page');
 
       if (curView) {
         curView.classList.remove('view-active');
@@ -509,6 +527,9 @@ export class UIController {
     if (overlay) {
       overlay.style.opacity = '1';
       overlay.style.pointerEvents = 'auto';
+      overlay.setAttribute('aria-hidden', 'false');
+      overlay.removeAttribute('inert');
+      (this.elements['game-over-retry'] as HTMLButtonElement | null)?.focus();
     }
   }
 
@@ -517,6 +538,8 @@ export class UIController {
     if (overlay) {
       overlay.style.opacity = '0';
       overlay.style.pointerEvents = 'none';
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.setAttribute('inert', '');
     }
   }
 }

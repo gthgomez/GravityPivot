@@ -12,7 +12,7 @@ export interface SaveV7 {
   upgrades: { shield: number; magnet: number; tether: number };
   highScores: HighScore[];
   skins: { unlockedIds: number[]; activeId: number };
-  preferences: { muted: boolean; reducedMotion: boolean };
+  preferences: { muted: boolean; reducedMotion: boolean | null };
   dailyRecords: Record<string, number>;
 }
 
@@ -38,7 +38,7 @@ export function createDefaultSave(): SaveV7 {
     upgrades: { shield: 1, magnet: 1, tether: 1 },
     highScores: [],
     skins: { unlockedIds: [0], activeId: 0 },
-    preferences: { muted: false, reducedMotion: false },
+    preferences: { muted: false, reducedMotion: null },
     dailyRecords: {},
   };
 }
@@ -182,12 +182,16 @@ export function validateSaveV7(input: unknown): ValidationResult {
   const muted =
     typeof rawPreferences.muted === 'boolean' ? rawPreferences.muted : false;
   const reducedMotion =
-    typeof rawPreferences.reducedMotion === 'boolean'
+    typeof rawPreferences.reducedMotion === 'boolean' ||
+    rawPreferences.reducedMotion === null
       ? rawPreferences.reducedMotion
-      : false;
+      : null;
   if (
     typeof rawPreferences.muted !== 'boolean' ||
-    typeof rawPreferences.reducedMotion !== 'boolean'
+    !(
+      typeof rawPreferences.reducedMotion === 'boolean' ||
+      rawPreferences.reducedMotion === null
+    )
   ) {
     repaired = true;
   }

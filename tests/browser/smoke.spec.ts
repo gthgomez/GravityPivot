@@ -37,6 +37,29 @@ test('keyboard tether input acquires and releases an anchor', async ({
   );
   await page.keyboard.up('Space');
   await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
+  const box = await page.locator('#game-canvas').boundingBox();
+  if (!box) throw new Error('Canvas has no visible bounds');
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await expect(page.locator('#metric-log')).toContainText(
+    'Tether secure on orbit node',
+  );
+  await page.mouse.up();
+});
+
+test('Space on a focused launch button keeps native button activation', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('#btn-daily-launch').focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#launch-prompt-overlay')).toHaveCSS(
+    'opacity',
+    '0',
+  );
+  await expect(page.locator('#game-status')).toHaveText(
+    'Daily challenge started.',
+  );
 });
 
 test('touch input acquires and releases an anchor', async ({
@@ -267,4 +290,143 @@ test('storage denial does not prevent the app from launching', async ({
     '0',
   );
   await context.close();
+});
+
+test('captured pointer release outside the canvas releases the tether', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
+  await page.waitForTimeout(250);
+  const box = await page.locator('#game-canvas').boundingBox();
+  if (!box) throw new Error('Canvas has no visible bounds');
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await expect(page.locator('#metric-log')).toContainText(
+    'Tether secure on orbit node',
+  );
+  await page.mouse.move(8, 8);
+  await page.mouse.up();
+  await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
+});
+
+test('injected pointer cancellation releases safely', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
+  await page.waitForTimeout(250);
+  const box = await page.locator('#game-canvas').boundingBox();
+  if (!box) throw new Error('Canvas has no visible bounds');
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await expect(page.locator('#metric-log')).toContainText(
+    'Tether secure on orbit node',
+  );
+  await page.evaluate(() => {
+    const canvas = document.querySelector('#game-canvas')!;
+    canvas.dispatchEvent(
+      new PointerEvent('pointercancel', {
+        pointerId: 1,
+        isPrimary: true,
+        bubbles: true,
+        button: 0,
+      }),
+    );
+  });
+  await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
+  await page.mouse.up();
+});
+
+test('motion and sound settings persist across refresh', async ({ page }) => {
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'Navigate to Player Settings' })
+    .click();
+  await page.getByLabel('Motion preference').selectOption('reduced');
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-reduced-motion',
+    'true',
+  );
+  await page.locator('#unmute-btn').click();
+  await page.reload();
+  await page
+    .getByRole('button', { name: 'Navigate to Player Settings' })
+    .click();
+  await expect(page.getByLabel('Motion preference')).toHaveValue('reduced');
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-reduced-motion',
+    'true',
+  );
+  await expect(page.locator('#unmute-btn')).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+});
+
+test('keyboard release does not cancel an independently held pointer', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
+  await page.waitForTimeout(250);
+  const box = await page.locator('#game-canvas').boundingBox();
+  if (!box) throw new Error('Canvas has no visible bounds');
+  await page.keyboard.down('Space');
+  await expect(page.locator('#metric-log')).toContainText(
+    'Tether secure on orbit node',
+  );
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.keyboard.up('Space');
+  await expect(page.locator('#metric-log')).not.toContainText(
+    'Tether decoupled.',
+  );
+  await page.mouse.up();
+  await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
+});
+
+test('a synthetic secondary pointer cannot steal the primary tether hold', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
+  await page.waitForTimeout(250);
+  const box = await page.locator('#game-canvas').boundingBox();
+  if (!box) throw new Error('Canvas has no visible bounds');
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await expect(page.locator('#metric-log')).toContainText(
+    'Tether secure on orbit node',
+  );
+  await page.locator('#game-canvas').dispatchEvent('pointerdown', {
+    pointerId: 2,
+    pointerType: 'touch',
+    isPrimary: false,
+    button: 0,
+  });
+  await page.mouse.up();
+  await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
+});
+
+test('navigating away while held cancels tether before pausing', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activate Daily Seeded Run' }).click();
+  await page.waitForTimeout(250);
+  const box = await page.locator('#game-canvas').boundingBox();
+  if (!box) throw new Error('Canvas has no visible bounds');
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await expect(page.locator('#metric-log')).toContainText(
+    'Tether secure on orbit node',
+  );
+  await page
+    .locator('#tab-terminal')
+    .evaluate((button: HTMLElement) => button.click());
+  await expect(page.locator('#metric-log')).toContainText('Tether decoupled.');
+  await expect(page.locator('#pause-overlay')).toHaveAttribute(
+    'aria-hidden',
+    'false',
+  );
+  await page.mouse.up();
 });

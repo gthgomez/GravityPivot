@@ -13,6 +13,7 @@ export class CanvasRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private shakeIntensity: number = 0;
+  private reducedMotion = false;
   private floatingTexts: Array<{
     screenX: number;
     screenY: number;
@@ -30,7 +31,13 @@ export class CanvasRenderer {
   }> = [];
 
   public triggerShake(intensity: number): void {
+    if (this.reducedMotion) return;
     this.shakeIntensity = intensity;
+  }
+
+  public setReducedMotion(enabled: boolean): void {
+    this.reducedMotion = enabled;
+    if (enabled) this.shakeIntensity = 0;
   }
 
   public spawnFloatingText(
@@ -39,6 +46,7 @@ export class CanvasRenderer {
     text: string,
     color: string,
   ): void {
+    if (this.reducedMotion) return;
     this.floatingTexts.push({
       screenX,
       screenY,

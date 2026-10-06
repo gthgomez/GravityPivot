@@ -364,14 +364,7 @@ export class GravityPivotEngine {
       }
 
       const cross = rx * this.spark.vy - ry * this.spark.vx;
-      let sigma = 1;
-
-      if (this.calibration.collinearFallbackEnabled) {
-        sigma = Math.abs(cross) < EPSILON ? 1 : Math.sign(cross);
-      } else {
-        sigma = Math.sign(cross);
-      }
-      if (sigma === 0) sigma = 1;
+      const sigma = Math.abs(cross) < EPSILON ? 1 : Math.sign(cross);
 
       this.spark.flightState = FlightState.ORBITAL;
       this.spark.orbitalNodeId = targetNode.id;

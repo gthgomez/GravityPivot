@@ -10,6 +10,19 @@ const createMockElement = () => ({
     add: vi.fn(),
     remove: vi.fn(),
   },
+  attributes: {} as Record<string, string>,
+  setAttribute: vi.fn(function (this: any, key: string, value: string) {
+    this.attributes[key] = value;
+  }),
+  removeAttribute: vi.fn(function (this: any, key: string) {
+    delete this.attributes[key];
+  }),
+  toggleAttribute: vi.fn(function (this: any, key: string, force?: boolean) {
+    if (force) this.attributes[key] = '';
+    else delete this.attributes[key];
+    return Boolean(force);
+  }),
+  focus: vi.fn(),
   textContent: '',
   innerHTML: '',
   disabled: false,
@@ -113,6 +126,7 @@ describe('UIController', () => {
     ui.showPauseOverlay(false);
     expect(el('pause-overlay').style.opacity).toBe('0');
     expect(el('pause-overlay').style.pointerEvents).toBe('none');
+    expect(el('pause-overlay').attributes['aria-hidden']).toBe('true');
   });
 
   test('should toggle launch overlay visibility and pointer events', () => {

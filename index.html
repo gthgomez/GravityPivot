@@ -43,7 +43,7 @@
   <!-- Navigation Dock -->
   <nav class="nav-dock">
     <div class="nav-dock-container">
-      <button type="button" id="tab-cockpit" class="interactive-btn tab-button tab-active" aria-label="Navigate to Cockpit View">
+      <button type="button" id="tab-cockpit" class="interactive-btn tab-button tab-active" aria-label="Navigate to Cockpit View" aria-current="page">
         <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
@@ -61,11 +61,11 @@
         </svg>
         <span class="tab-label">DIAGNOSTICS</span>
       </button>
-      <button type="button" id="tab-calibration" class="interactive-btn tab-button" aria-label="Navigate to Calibration Settings">
+      <button type="button" id="tab-calibration" class="interactive-btn tab-button" aria-label="Navigate to Player Settings">
         <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
         </svg>
-        <span class="tab-label">CALIBRATE</span>
+        <span class="tab-label">SETTINGS</span>
       </button>
     </div>
   </nav>
@@ -74,13 +74,13 @@
   <main class="main-workspace">
     
     <!-- Pause State Backdrop -->
-    <div id="pause-overlay" class="overlay-backdrop pause-overlay">
+    <div id="pause-overlay" class="overlay-backdrop pause-overlay" role="dialog" aria-modal="true" aria-labelledby="pause-title" aria-hidden="true" inert>
       <div class="pause-icon-container">
         <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="pause-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </div>
-      <p class="pause-title mono">Flight Dynamics Paused</p>
+      <p id="pause-title" class="pause-title mono">Flight paused. Take a breath.</p>
       <button type="button" id="resume-btn" class="interactive-btn resume-btn">Resume Flight Control</button>
     </div>
 
@@ -130,12 +130,12 @@
 
         <!-- Canvas Body -->
         <div class="canvas-viewport">
-          <canvas id="game-canvas"></canvas>
+          <canvas id="game-canvas" tabindex="0" aria-label="GravityPivot playfield. Hold Space or press and hold to tether; release to sling forward."></canvas>
           
           <!-- Launch Prompt Overlay -->
-          <div id="launch-prompt-overlay" class="overlay-backdrop launch-overlay">
+          <div id="launch-prompt-overlay" class="overlay-backdrop launch-overlay" role="dialog" aria-modal="true" aria-labelledby="launch-title">
             <span class="launch-subtitle mono">Flight Navigation Engaged</span>
-            <h2 class="launch-title">COCKPIT ONLINE</h2>
+            <h2 id="launch-title" class="launch-title">COCKPIT ONLINE</h2>
             <div class="launch-buttons-row" style="display: flex; gap: 0.75rem; margin-top: 0.75rem;">
               <button type="button" id="btn-splash-launch" class="interactive-btn launch-btn" style="margin-top: 0;" aria-label="Activate Ship Fusion Engines">
                 <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="launch-btn-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -150,7 +150,7 @@
                 <span>DAILY CHALLENGE</span>
               </button>
             </div>
-            <p class="launch-controls mono">[ Keyboard Controls: Space = Swing, R = Reset ]</p>
+            <p class="launch-controls mono">HOLD to tether · RELEASE to sling. Press Space while the playfield is focused.</p>
             
             <!-- Leaderboard Card -->
             <div class="leaderboard-card mono">
@@ -162,7 +162,7 @@
           </div>
 
           <!-- Game Over Panel Overlay -->
-          <div id="game-over-panel" class="overlay-backdrop game-over-overlay" style="opacity: 0; pointer-events: none;">
+          <div id="game-over-panel" class="overlay-backdrop game-over-overlay" role="dialog" aria-modal="true" aria-labelledby="game-over-label" aria-hidden="true" inert style="opacity: 0; pointer-events: none;">
             <div class="game-over-card mono">
               <span class="game-over-subtitle">TELEMETRY LOST</span>
               <h2 id="game-over-label" class="game-over-title">VESSEL CRASHED</h2>
@@ -201,7 +201,7 @@
             CRITICAL HULL PROXIMITY
           </span>
           <div class="cockpit-instructions mono">
-            Hold Screen or Space to Pivot
+            Hold to tether · release to sling
           </div>
         </div>
 
@@ -365,14 +365,23 @@
       <div class="calibration-panel">
         
         <div>
-          <h2 class="calibration-title">System Calibration Settings</h2>
-          <p class="calibration-subtitle mono">Fine-tune physics matrices and dynamic edge fallbacks.</p>
+          <h2 class="calibration-title">Player Settings</h2>
+          <p class="calibration-subtitle mono">Set sound and motion preferences for your flight.</p>
+          <label class="setting-row" for="motion-preference">
+            <span>Motion</span>
+            <select id="motion-preference" aria-label="Motion preference">
+              <option value="system">Use system setting</option>
+              <option value="reduced">Reduce motion</option>
+              <option value="full">Full motion</option>
+            </select>
+          </label>
+          <p class="setting-help">The sound button in the header saves your sound preference.</p>
         </div>
 
         <div class="calibration-grid">
           
           <!-- Left: Environmental Sliders -->
-          <div class="sliders-group">
+          <div class="sliders-group debug-only" hidden>
             <h3 class="calibration-group-title mono">Engine Parameters</h3>
             
             <div class="slider-card">
@@ -401,7 +410,7 @@
           </div>
 
           <!-- Right: Vulnerability Matrix -->
-          <div class="toggles-group">
+          <div class="toggles-group debug-only" hidden>
             <h3 class="calibration-group-title mono">Audit Toggles (Sandbox Mode)</h3>
             
             <div class="toggles-list">
@@ -437,6 +446,8 @@
     </section>
 
   </main>
+
+  <div id="game-status" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Script entrypoint bootstrap -->
   <script type="module" src="/src/main.ts"></script>

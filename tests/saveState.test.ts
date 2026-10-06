@@ -255,4 +255,15 @@ describe('GameSaveState v7', () => {
     expect(state.updateDailyChallengeBest('2026-10-06', 0, 100)).toBe(false);
     expect(state.getDailyChallengeBest('2026-02-30', 1)).toBe(0);
   });
+
+  test('persists explicit motion and sound preferences including system mode', () => {
+    const state = new GameSaveState();
+    expect(state.preferences.reducedMotion).toBeNull();
+    state.setPreference('reducedMotion', true);
+    state.setPreference('muted', true);
+    const restored = new GameSaveState();
+    expect(restored.preferences).toEqual({ muted: true, reducedMotion: true });
+    restored.setPreference('reducedMotion', null);
+    expect(new GameSaveState().preferences.reducedMotion).toBeNull();
+  });
 });

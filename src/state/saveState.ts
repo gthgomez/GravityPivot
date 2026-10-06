@@ -197,7 +197,7 @@ export class GameSaveState {
         unlockedIds: parseJson(read(LEGACY_KEYS.UNLOCKED_SKINS)) ?? [0],
         activeId: number(read(LEGACY_KEYS.ACTIVE_SKIN), 0),
       },
-      preferences: { muted: false, reducedMotion: false },
+      preferences: { muted: false, reducedMotion: null },
       dailyRecords,
     };
   }
@@ -238,6 +238,14 @@ export class GameSaveState {
     );
     this.persist();
     return this.totalCores;
+  }
+
+  public setPreference<K extends keyof SaveV7['preferences']>(
+    key: K,
+    value: SaveV7['preferences'][K],
+  ): void {
+    this.data.preferences[key] = value;
+    this.persist();
   }
 
   public purchaseUpgrade(type: UpgradeType): boolean {

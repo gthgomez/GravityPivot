@@ -53,6 +53,10 @@ export class SynthManager {
     return this.isMuted;
   }
 
+  public restoreMutePreference(muted: boolean): void {
+    this.isMuted = muted;
+  }
+
   public setMute(state: boolean): void {
     this.isMuted = state;
     if (!this.ctx) this.init();

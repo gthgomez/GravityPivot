@@ -50,12 +50,17 @@ window.addEventListener('DOMContentLoaded', () => {
       saveState.totalCores,
     );
     engine.setGamePhase(GamePhase.FLYING);
+    canvas.focus({ preventScroll: true });
+    ui.announceStatus(
+      isDaily ? 'Daily challenge started.' : 'Standard flight started.',
+    );
     ui.showLaunchOverlay(false);
     ui.showPauseOverlay(false);
     ui.hideGameOverPanel();
     resetFrameClock();
     synth.init();
-    synth.resumeContext();
+    synth.setMute(saveState.preferences.muted);
+    if (!synth.getIsMuted()) synth.resumeContext();
   };
 
   // 2. Wire up callbacks (engine -> UI/audio)
@@ -119,6 +124,7 @@ window.addEventListener('DOMContentLoaded', () => {
       );
     },
     onRunEnded: (result) => {
+      ui.announceStatus('Flight ended after a collision. Results are shown.');
       const { x, y, score: finalScore, sectorReached } = result;
       const dailyContext =
         result.context.mode === 'DAILY' ? result.context : null;
@@ -257,11 +263,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 6. Bind UI element updates & resizing
   const resizeGame = () => {
-    const parentWidth = canvas.parentElement?.clientWidth ?? 0;
-    renderer.setupResizing(parentWidth, canvas.clientHeight);
+    const rect = canvas.getBoundingClientRect();
+    renderer.setupResizing(rect.width, rect.height);
   };
   window.addEventListener('resize', resizeGame);
+  const resizeObserver = new ResizeObserver(resizeGame);
+  resizeObserver.observe(canvas.parentElement ?? canvas);
   resizeGame(); // Initial resize alignment
+  requestAnimationFrame(resizeGame); // Reconcile after browser layout settles
 
   function resetFrameClock(): void {
     accumulator = 0;
@@ -270,9 +279,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   function pauseRun(): void {
     if (engine.getGamePhase() !== GamePhase.FLYING) return;
-    engine.releaseTether();
+    cancelHeldInputs();
     engine.setGamePhase(GamePhase.PAUSED);
     ui.showPauseOverlay(true);
+    ui.announceStatus('Flight paused.');
     synth.suspendContext();
     resetFrameClock();
   }
@@ -284,14 +294,16 @@ window.addEventListener('DOMContentLoaded', () => {
       resizeGame();
     }
     engine.setGamePhase(GamePhase.FLYING);
+    canvas.focus({ preventScroll: true });
     ui.showPauseOverlay(false);
+    ui.announceStatus('Flight resumed.');
     resetFrameClock();
     if (!synth.getIsMuted()) synth.resumeContext();
   }
 
   function resetToSplash(): void {
+    cancelHeldInputs();
     particles.clear();
-    engine.releaseTether();
     engine.initializeLevel(runContext, saveState.upgrades);
     ui.updateCoreCount(
       engine.getSparkState().collectedInRun,
@@ -309,43 +321,69 @@ window.addEventListener('DOMContentLoaded', () => {
   ui.updateCoreCount(0, saveState.totalCores);
   ui.updateLeaderboardDisplay(saveState.highScores);
   ui.updatePersonalBest(saveState.highScores[0]?.score ?? 0, false);
+  const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let reducedMotion =
+    saveState.preferences.reducedMotion ?? motionQuery.matches;
+  renderer.setReducedMotion(reducedMotion);
+  document.documentElement.dataset.reducedMotion = String(reducedMotion);
+
+  const debugMode =
+    new URLSearchParams(window.location.search).get('debug') === '1';
+  document.querySelectorAll<HTMLElement>('.debug-only').forEach((element) => {
+    element.hidden = !debugMode;
+  });
+  synth.restoreMutePreference(saveState.preferences.muted);
 
   // 7. Bind controls & input handlers
-  const handleTetherDown = (e: MouseEvent | TouchEvent) => {
-    if (e.cancelable) e.preventDefault();
+  const heldSources = new Set<string>();
+  let activePointerId: number | null = null;
+  function cancelHeldInputs(): void {
+    heldSources.clear();
+    activePointerId = null;
+    engine.releaseTether();
+  }
+
+  const handlePointerDown = (event: PointerEvent) => {
+    if (!event.isPrimary || event.button !== 0 || activePointerId !== null)
+      return;
     if (activeTab !== ViewTab.COCKPIT) return;
-
     const phase = engine.getGamePhase();
-    if (phase === GamePhase.SPLASH) return;
-
+    if (phase === GamePhase.SPLASH || phase === GamePhase.PAUSED) return;
+    event.preventDefault();
     if (phase === GamePhase.CRASHED) {
       ui.hideGameOverPanel();
       startRun(isDailyMode);
+      canvas.focus({ preventScroll: true });
       return;
     }
-
-    const touch = (e as TouchEvent).touches
-      ? (e as TouchEvent).touches[0]
-      : (e as MouseEvent);
     const coords = ui.getWorldCoords(
-      touch.clientX,
-      touch.clientY,
+      event.clientX,
+      event.clientY,
       engine.getSparkState().x,
       canvas,
     );
     if (!coords) return;
-    engine.acquireTether(coords.worldX, coords.worldY);
+    activePointerId = event.pointerId;
+    heldSources.add('pointer');
+    canvas.setPointerCapture(event.pointerId);
+    if (heldSources.size === 1)
+      engine.acquireTether(coords.worldX, coords.worldY);
   };
 
-  const handleTetherUp = (e: MouseEvent | TouchEvent) => {
-    if (e.cancelable) e.preventDefault();
-    engine.releaseTether();
+  const releasePointer = (event: PointerEvent) => {
+    if (event.pointerId !== activePointerId) return;
+    activePointerId = null;
+    heldSources.delete('pointer');
+    if (heldSources.size === 0) engine.releaseTether();
   };
 
-  canvas.addEventListener('mousedown', handleTetherDown);
-  window.addEventListener('mouseup', handleTetherUp);
-  canvas.addEventListener('touchstart', handleTetherDown, { passive: false });
-  window.addEventListener('touchend', handleTetherUp, { passive: false });
+  canvas.addEventListener('pointerdown', handlePointerDown);
+  canvas.addEventListener('pointerup', releasePointer);
+  canvas.addEventListener('pointercancel', releasePointer);
+  canvas.addEventListener('lostpointercapture', releasePointer);
+  window.addEventListener('pointerup', releasePointer);
+  window.addEventListener('pointercancel', releasePointer);
+  window.addEventListener('blur', cancelHeldInputs);
 
   // Splash/Pause overlays buttons
   const btnSplashLaunch = document.getElementById('btn-splash-launch');
@@ -504,6 +542,17 @@ window.addEventListener('DOMContentLoaded', () => {
   // Mute button binding
   const unmuteBtn = document.getElementById('unmute-btn');
   if (unmuteBtn) {
+    const syncMuteLabel = () => {
+      const muted = synth.getIsMuted();
+      unmuteBtn.setAttribute('aria-pressed', String(!muted));
+      const textSpan = unmuteBtn.querySelector('.synth-toggle-text');
+      if (textSpan) textSpan.textContent = muted ? 'SOUND OFF' : 'SOUND ON';
+      unmuteBtn.setAttribute(
+        'aria-label',
+        muted ? 'Turn sound on' : 'Turn sound off',
+      );
+    };
+    syncMuteLabel();
     unmuteBtn.addEventListener('click', () => {
       if (synth.getIsMuted()) {
         synth.setMute(false);
@@ -522,13 +571,48 @@ window.addEventListener('DOMContentLoaded', () => {
         const textSpan = unmuteBtn.querySelector('.synth-toggle-text');
         if (textSpan) textSpan.textContent = 'SYNTH MUTED';
       }
+      saveState.setPreference('muted', synth.getIsMuted());
+      syncMuteLabel();
     });
   }
+
+  const motionPreference = document.getElementById(
+    'motion-preference',
+  ) as HTMLSelectElement | null;
+  if (motionPreference) {
+    motionPreference.value =
+      saveState.preferences.reducedMotion === null
+        ? 'system'
+        : saveState.preferences.reducedMotion
+          ? 'reduced'
+          : 'full';
+    motionPreference.addEventListener('change', () => {
+      const value = motionPreference.value;
+      const preference = value === 'system' ? null : value === 'reduced';
+      saveState.setPreference('reducedMotion', preference);
+      reducedMotion = preference ?? motionQuery.matches;
+      renderer.setReducedMotion(reducedMotion);
+      document.documentElement.dataset.reducedMotion = String(reducedMotion);
+    });
+  }
+  motionQuery.addEventListener('change', (event) => {
+    if (saveState.preferences.reducedMotion !== null) return;
+    reducedMotion = event.matches;
+    renderer.setReducedMotion(reducedMotion);
+    document.documentElement.dataset.reducedMotion = String(reducedMotion);
+  });
 
   // Keyboard navigation & controls bindings
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (activeTab !== ViewTab.COCKPIT) return;
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.isContentEditable ||
+        target.matches('button, input, textarea, select, a, [role="button"]'))
+    )
+      return;
 
     const phase = engine.getGamePhase();
     if (phase === GamePhase.SPLASH) return;
@@ -542,8 +626,11 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     if (e.code === 'Space') {
+      if (document.activeElement !== canvas) return;
       e.preventDefault();
-      engine.acquireTether();
+      const wasAlreadyHeld = heldSources.size > 0;
+      heldSources.add('keyboard');
+      if (!wasAlreadyHeld) engine.acquireTether();
     }
     if (e.code === 'KeyR') {
       resetToSplash();
@@ -552,7 +639,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
-      engine.releaseTether();
+      heldSources.delete('keyboard');
+      if (heldSources.size === 0) engine.releaseTether();
     }
   });
 
@@ -561,6 +649,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById(tabId);
     if (btn) {
       btn.addEventListener('click', () => {
+        cancelHeldInputs();
         if (activeTab === tab) return;
 
         const phaseBefore = engine.getGamePhase();
@@ -591,6 +680,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Visibility page lifecycle listener
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
+      cancelHeldInputs();
       if (engine.getGamePhase() === GamePhase.FLYING) {
         pauseRun();
       }
