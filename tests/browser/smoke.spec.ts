@@ -1,5 +1,15 @@
 import { expect, test } from '@playwright/test';
 
+// Daily seeded runs derive their world seed from the current UTC date, so an
+// unpinned date turns every Daily-dependent assertion into a lottery: on some
+// days' layouts the nearest spawn anchor sits outside R_max and the tether
+// legitimately refuses ("Node vector outside tether limits"). Pin the page's
+// clock to a date whose layout keeps the spawn anchor tetherable; production
+// gameplay stays date-driven because nothing in the app is changed.
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-06T12:00:00Z'));
+});
+
 test('loads the production cockpit and launches a run', async ({ page }) => {
   const pageErrors: string[] = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
