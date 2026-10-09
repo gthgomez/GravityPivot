@@ -15,10 +15,10 @@ export class SynthManager {
 
   public init(): void {
     if (this.ctx) return;
-    
+
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
-    
+
     this.ctx = new AudioCtx();
 
     this.droneOsc = this.ctx.createOscillator();
@@ -53,6 +53,10 @@ export class SynthManager {
     return this.isMuted;
   }
 
+  public restoreMutePreference(muted: boolean): void {
+    this.isMuted = muted;
+  }
+
   public setMute(state: boolean): void {
     this.isMuted = state;
     if (!this.ctx) this.init();
@@ -63,7 +67,11 @@ export class SynthManager {
     }
     const targetVol = this.isMuted ? 0 : this.masterVolume;
     if (this.droneGain) {
-      this.droneGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.15);
+      this.droneGain.gain.setTargetAtTime(
+        targetVol,
+        this.ctx.currentTime,
+        0.15,
+      );
     }
   }
 
@@ -72,14 +80,22 @@ export class SynthManager {
 
     const baseOctaveFreq = 82.41 + sector * 12.0 + speedRatio * 35.0;
     if (this.droneOsc) {
-      this.droneOsc.frequency.setTargetAtTime(baseOctaveFreq, this.ctx.currentTime, 0.3);
+      this.droneOsc.frequency.setTargetAtTime(
+        baseOctaveFreq,
+        this.ctx.currentTime,
+        0.3,
+      );
     }
 
     const filterCutoff = 250 + combo * 150 + speedRatio * 400;
     if (this.lowpass) {
-      this.lowpass.frequency.setTargetAtTime(filterCutoff, this.ctx.currentTime, 0.1);
+      this.lowpass.frequency.setTargetAtTime(
+        filterCutoff,
+        this.ctx.currentTime,
+        0.1,
+      );
     }
-    
+
     const lfoFreq = 3 + combo * 1.5;
     if (this.lfo) {
       this.lfo.frequency.setTargetAtTime(lfoFreq, this.ctx.currentTime, 0.25);
@@ -89,7 +105,7 @@ export class SynthManager {
       this.onParamsChange(
         `${Math.round(baseOctaveFreq)} Hz`,
         `${filterCutoff.toFixed(0)} Hz`,
-        `${lfoFreq.toFixed(1)} Hz`
+        `${lfoFreq.toFixed(1)} Hz`,
       );
     }
   }
@@ -181,7 +197,7 @@ export class SynthManager {
     osc2.type = 'sine';
     osc1.frequency.setValueAtTime(261.63, now);
     osc2.frequency.setValueAtTime(329.63, now + 0.1);
-    
+
     osc1.frequency.exponentialRampToValueAtTime(523.25, now + 0.3);
     osc2.frequency.exponentialRampToValueAtTime(659.25, now + 0.4);
 
@@ -191,7 +207,7 @@ export class SynthManager {
     osc1.connect(gain);
     osc2.connect(gain);
     gain.connect(this.ctx.destination);
-    
+
     osc1.start();
     osc2.start();
     osc1.stop(now + 0.55);

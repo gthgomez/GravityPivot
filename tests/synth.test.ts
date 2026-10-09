@@ -70,12 +70,12 @@ describe('SynthManager (audio activation)', () => {
     Object.defineProperty(globalThis, 'window', {
       value: mockWindow,
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(mockWindow, 'AudioContext', {
       value: MockAudioContext,
       writable: true,
-      configurable: true
+      configurable: true,
     });
     synth = new SynthManager();
   });
@@ -139,7 +139,7 @@ describe('SynthManager (audio activation)', () => {
     expect(droneGain.gain.setTargetAtTime).toHaveBeenCalledWith(
       0.12,
       expect.any(Number),
-      expect.any(Number)
+      expect.any(Number),
     );
   });
 
@@ -152,7 +152,7 @@ describe('SynthManager (audio activation)', () => {
     expect(droneGain.gain.setTargetAtTime).toHaveBeenCalledWith(
       0,
       expect.any(Number),
-      expect.any(Number)
+      expect.any(Number),
     );
   });
 
@@ -230,19 +230,19 @@ describe('SynthManager (audio activation)', () => {
     expect(droneOsc.frequency.setTargetAtTime).toHaveBeenCalledWith(
       123.91,
       expect.any(Number),
-      expect.any(Number)
+      expect.any(Number),
     );
     // filterCutoff = 250 + 3*150 + 0.5*400 = 900
     expect(lowpass.frequency.setTargetAtTime).toHaveBeenCalledWith(
       900,
       expect.any(Number),
-      expect.any(Number)
+      expect.any(Number),
     );
     // lfoFreq = 3 + 3*1.5 = 7.5
     expect(lfo.frequency.setTargetAtTime).toHaveBeenCalledWith(
       7.5,
       expect.any(Number),
-      expect.any(Number)
+      expect.any(Number),
     );
 
     expect(onParamsChange).toHaveBeenCalledWith('124 Hz', '900 Hz', '7.5 Hz');

@@ -8,17 +8,18 @@
 > This file covers canvas-engine–specific guardrails for the GravityPivot project only.
 
 ## Stack
+- **Supported development runtime**: Node.js 24 LTS (`.nvmrc`)
 - **Runtime**: Vite + TypeScript (browser, no framework)
 - **Renderer**: HTML5 Canvas 2D (`CanvasRenderingContext2D`)
 - **Physics**: Custom fixed-step accumulator loop (60fps target, `physicsTimeStep = 1/60`)
-- **Tests**: Vitest — `npm run test`
-- **Type check**: `npm run typecheck` (`tsc --noEmit`)
+- **Checks**: Biome format/lint, TypeScript, Vitest with engine/generator/save coverage floors, Vite — `npm run verify`
 
 ## Verification Gates
-Never mark work complete without running both:
+Never mark work complete without running the canonical gate:
 ```
-npm run typecheck   # must be 0 errors
-npm run test        # all suites must pass
+npm run verify      # format, lint, typecheck, covered tests, and production build
+npm run test:browser # Chromium, mobile emulation, and WebKit production journeys
+npm run test:procgen:extended # 10,000 seeds after generation/geometry changes
 ```
 
 ---
@@ -96,4 +97,7 @@ The engine's internal spark state must only be modified through the engine's own
 1. `npm run typecheck` must exit 0 before any commit.
 2. `npm run test` must pass all suites before any commit.
 3. The engine's physics accumulator loop must not read DOM elements on every tick — cache calibration state once per frame outside the accumulator.
-4. `localStorage` keys are versioned (`_v6` suffix). Changing a key version clears all existing player saves — treat as a breaking migration.
+4. Progression lives in the validated `gravity_pivot_save` version 7 blob. Preserve `_v6` source keys during migration; never reinterpret unqualified legacy Daily scores as qualified records.
+5. Pointer holds must be released on cancellation, blur, pause, navigation, reset, and visibility changes. Keyboard and pointer holds share ownership state.
+6. Engineering calibration stays behind `?debug=1`; Daily rules cannot be changed through engine or UI mutations.
+7. Reduced-motion behavior must preserve essential tether, collision, and combo feedback while suppressing shake and decorative motion.
