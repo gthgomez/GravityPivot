@@ -1,11 +1,24 @@
-import { SparkState, MapData, TrailBuffer } from '../types';
+import { SparkState, ReadonlyMapData, ReadonlyTrailBuffer } from '../types';
 import { ParticleEngine } from '../effects/particles';
-import { FlightState, GamePhase, SHIP_SKINS } from '../constants';
+import {
+  DEFAULT_CONFIG,
+  FlightState,
+  GamePhase,
+  SHIP_SKINS,
+} from '../constants';
+import { WORLD_VIEWPORT_HEIGHT } from '../constants';
+import {
+  cameraOffsetForSpark,
+  createViewportTransform,
+  ViewportTransform,
+  worldToScreen,
+} from './viewport';
 
 export class CanvasRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private shakeIntensity: number = 0;
+  private reducedMotion = false;
   private floatingTexts: Array<{
     screenX: number;
     screenY: number;
@@ -15,13 +28,30 @@ export class CanvasRenderer {
     vy: number;
     life: number;
   }> = [];
-  private stars: Array<{ x: number; y: number; size: number; speedMult: number }> = [];
+  private stars: Array<{
+    x: number;
+    y: number;
+    size: number;
+    speedMult: number;
+  }> = [];
 
   public triggerShake(intensity: number): void {
+    if (this.reducedMotion) return;
     this.shakeIntensity = intensity;
   }
 
-  public spawnFloatingText(screenX: number, screenY: number, text: string, color: string): void {
+  public setReducedMotion(enabled: boolean): void {
+    this.reducedMotion = enabled;
+    if (enabled) this.shakeIntensity = 0;
+  }
+
+  public spawnFloatingText(
+    screenX: number,
+    screenY: number,
+    text: string,
+    color: string,
+  ): void {
+    if (this.reducedMotion) return;
     this.floatingTexts.push({
       screenX,
       screenY,
@@ -29,8 +59,22 @@ export class CanvasRenderer {
       color,
       alpha: 1.0,
       vy: -0.8,
-      life: 45
+      life: 45,
     });
+  }
+
+  public spawnWorldFloatingText(
+    worldX: number,
+    worldY: number,
+    text: string,
+    color: string,
+    sparkX: number,
+  ): void {
+    const cameraX = cameraOffsetForSpark(sparkX);
+    const viewport = this.getViewport(cameraX);
+    if (!viewport) return;
+    const point = worldToScreen(worldX, worldY, viewport);
+    this.spawnFloatingText(point.x, point.y, text, color);
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -46,29 +90,65 @@ export class CanvasRenderer {
     return this.ctx;
   }
 
-  public setupResizing(parentWidth: number, parentHeight: number): void {
+  public setupResizing(cssWidth: number, cssHeight: number): void {
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = parentWidth * dpr;
-    this.canvas.height = parentHeight * dpr;
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.ctx.scale(dpr, dpr);
+    const nextViewport = createViewportTransform(cssWidth, cssHeight, dpr, 0);
+    if (!nextViewport) return;
+    this.canvas.width = Math.round(cssWidth * dpr);
+    this.canvas.height = Math.round(cssHeight * dpr);
+    this.ctx.setTransform(
+      dpr * nextViewport.cssScale,
+      0,
+      0,
+      dpr * nextViewport.cssScale,
+      0,
+      0,
+    );
+  }
+
+  public getViewport(cameraX = 0): ViewportTransform | null {
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    return createViewportTransform(rect.width, rect.height, dpr, cameraX);
+  }
+
+  public getLogicalSize(): { width: number; height: number } | null {
+    const viewport = this.getViewport();
+    return viewport
+      ? { width: viewport.logicalWidth, height: viewport.logicalHeight }
+      : null;
+  }
+
+  private setWorldTransform(viewport: ViewportTransform): void {
+    this.ctx.setTransform(
+      viewport.dpr * viewport.cssScale,
+      0,
+      0,
+      viewport.dpr * viewport.cssScale,
+      0,
+      0,
+    );
   }
 
   public draw(
     spark: Readonly<SparkState>,
-    mapData: Readonly<MapData>,
-    historyTrail: Readonly<TrailBuffer>,
+    mapData: ReadonlyMapData,
+    historyTrail: ReadonlyTrailBuffer,
     particles: ParticleEngine,
     maxTetherRadius: number,
     sectorIndex: number,
     gamePhase: GamePhase,
-    activeSkinId: number
+    activeSkinId: number,
   ): void {
-    const scale = window.devicePixelRatio || 1;
-    const logicalWidth = this.canvas.width / scale;
-    const logicalHeight = this.canvas.height / scale;
+    const cameraOffsetX = cameraOffsetForSpark(spark.x);
+    const viewport = this.getViewport(cameraOffsetX);
+    if (!viewport) return;
+    this.setWorldTransform(viewport);
+    const logicalWidth = viewport.logicalWidth;
+    const logicalHeight = viewport.logicalHeight;
 
-    const activeSkin = SHIP_SKINS.find(s => s.id === activeSkinId) || SHIP_SKINS[0];
+    const activeSkin =
+      SHIP_SKINS.find((s) => s.id === activeSkinId) || SHIP_SKINS[0];
     const shipColor = activeSkin.shipColor;
     const trailColor = activeSkin.trailColor;
 
@@ -81,7 +161,7 @@ export class CanvasRenderer {
           x: Math.random() * logicalWidth,
           y: Math.random() * logicalHeight,
           size: 0.5 + Math.random() * 1.5,
-          speedMult: 0.05 + Math.random() * 0.15
+          speedMult: 0.05 + Math.random() * 0.15,
         });
       }
     }
@@ -90,20 +170,25 @@ export class CanvasRenderer {
     const sectorHue = (sectorIndex * 40) % 360;
     this.ctx.fillStyle = `hsl(${sectorHue}, 40%, 65%)`;
     for (const star of this.stars) {
-      const screenX = (star.x - (spark.x * star.speedMult)) % logicalWidth;
+      const screenX = (star.x - spark.x * star.speedMult) % logicalWidth;
       const finalX = screenX < 0 ? screenX + logicalWidth : screenX;
-      
+
       this.ctx.beginPath();
       this.ctx.arc(finalX, star.y, star.size, 0, Math.PI * 2);
       this.ctx.save();
-      this.ctx.globalAlpha = 0.15 + (star.size * 0.10);
+      this.ctx.globalAlpha = 0.15 + star.size * 0.1;
       this.ctx.fill();
       this.ctx.restore();
     }
 
-    const cameraOffsetX = Math.round(-spark.x + 150);
-    const shakeX = this.shakeIntensity > 0.5 ? (Math.random() - 0.5) * this.shakeIntensity : 0;
-    const shakeY = this.shakeIntensity > 0.5 ? (Math.random() - 0.5) * this.shakeIntensity : 0;
+    const shakeX =
+      this.shakeIntensity > 0.5
+        ? (Math.random() - 0.5) * this.shakeIntensity
+        : 0;
+    const shakeY =
+      this.shakeIntensity > 0.5
+        ? (Math.random() - 0.5) * this.shakeIntensity
+        : 0;
 
     this.ctx.save();
     this.ctx.translate(cameraOffsetX + shakeX, shakeY);
@@ -117,32 +202,50 @@ export class CanvasRenderer {
     for (let gx = startGridX; gx < startGridX + 1000; gx += gridGap) {
       this.ctx.beginPath();
       this.ctx.moveTo(Math.round(gx), 0);
-      this.ctx.lineTo(Math.round(gx), 400);
+      this.ctx.lineTo(Math.round(gx), WORLD_VIEWPORT_HEIGHT);
       this.ctx.stroke();
     }
 
     // Draw Cave walls
     if (mapData.upperWallSpline.length > 0) {
       const upperSpline = new Path2D();
-      upperSpline.moveTo(mapData.upperWallSpline[0].x, mapData.upperWallSpline[0].y);
+      upperSpline.moveTo(
+        mapData.upperWallSpline[0].x,
+        mapData.upperWallSpline[0].y,
+      );
       for (let i = 1; i < mapData.upperWallSpline.length; i++) {
-        upperSpline.lineTo(mapData.upperWallSpline[i].x, mapData.upperWallSpline[i].y);
+        upperSpline.lineTo(
+          mapData.upperWallSpline[i].x,
+          mapData.upperWallSpline[i].y,
+        );
       }
 
       const upperFill = new Path2D(upperSpline);
-      upperFill.lineTo(mapData.upperWallSpline[mapData.upperWallSpline.length - 1].x, 0);
+      upperFill.lineTo(
+        mapData.upperWallSpline[mapData.upperWallSpline.length - 1].x,
+        0,
+      );
       upperFill.lineTo(mapData.upperWallSpline[0].x, 0);
       upperFill.closePath();
 
       const lowerSpline = new Path2D();
-      lowerSpline.moveTo(mapData.lowerWallSpline[0].x, mapData.lowerWallSpline[0].y);
+      lowerSpline.moveTo(
+        mapData.lowerWallSpline[0].x,
+        mapData.lowerWallSpline[0].y,
+      );
       for (let i = 1; i < mapData.lowerWallSpline.length; i++) {
-        lowerSpline.lineTo(mapData.lowerWallSpline[i].x, mapData.lowerWallSpline[i].y);
+        lowerSpline.lineTo(
+          mapData.lowerWallSpline[i].x,
+          mapData.lowerWallSpline[i].y,
+        );
       }
 
       const lowerFill = new Path2D(lowerSpline);
-      lowerFill.lineTo(mapData.lowerWallSpline[mapData.lowerWallSpline.length - 1].x, 400);
-      lowerFill.lineTo(mapData.lowerWallSpline[0].x, 400);
+      lowerFill.lineTo(
+        mapData.lowerWallSpline[mapData.lowerWallSpline.length - 1].x,
+        WORLD_VIEWPORT_HEIGHT,
+      );
+      lowerFill.lineTo(mapData.lowerWallSpline[0].x, WORLD_VIEWPORT_HEIGHT);
       lowerFill.closePath();
 
       this.ctx.fillStyle = `hsl(${sectorHue}, 25%, 8%)`;
@@ -164,7 +267,9 @@ export class CanvasRenderer {
 
       this.ctx.beginPath();
       this.ctx.arc(node.x, node.y, maxTetherRadius, 0, Math.PI * 2);
-      this.ctx.strokeStyle = active ? 'rgba(34, 211, 238, 0.05)' : 'rgba(255, 255, 255, 0.01)';
+      this.ctx.strokeStyle = active
+        ? 'rgba(34, 211, 238, 0.05)'
+        : 'rgba(255, 255, 255, 0.01)';
       this.ctx.stroke();
 
       this.ctx.beginPath();
@@ -199,14 +304,23 @@ export class CanvasRenderer {
 
     // Draw active gravity tether anchor connection
     if (spark.flightState === FlightState.ORBITAL) {
-      const targetNode = mapData.nodes.find(n => n.id === spark.orbitalNodeId);
+      const targetNode = mapData.nodes.find(
+        (n) => n.id === spark.orbitalNodeId,
+      );
       if (targetNode) {
+        const tension = Math.min(
+          1,
+          Math.abs(spark.angularSpeed) / DEFAULT_CONFIG.maxAngularSpeed,
+        );
         this.ctx.beginPath();
         this.ctx.moveTo(spark.x, spark.y);
         this.ctx.lineTo(targetNode.x, targetNode.y);
-        this.ctx.strokeStyle = '#22d3ee';
-        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = `rgba(34, 211, 238, ${0.6 + tension * 0.4})`;
+        this.ctx.lineWidth = 1.5 + tension * 2;
         this.ctx.setLineDash([4, 4]);
+        this.ctx.lineDashOffset = this.reducedMotion
+          ? 0
+          : -(performance.now() / 80) % 8;
         this.ctx.stroke();
         this.ctx.setLineDash([]);
       }
