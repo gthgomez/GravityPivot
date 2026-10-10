@@ -1,141 +1,269 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { SAVE_KEY, SaveV7 } from '../src/state/saveSchema';
 import { GameSaveState } from '../src/state/saveState';
 
-describe('GameSaveState', () => {
+describe('GameSaveState v7', () => {
+  let store: Record<string, string>;
+  let setItem: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
-    // Setup clean mock localStorage for tests
-    const store: Record<string, string> = {};
-    const mockStorage = {
-      getItem: (key: string) => store[key] || null,
-      setItem: (key: string, value: string) => { store[key] = value; },
-      removeItem: (key: string) => { delete store[key]; },
-      clear: () => { for (const key in store) delete store[key]; }
-    };
+    store = {};
+    setItem = vi.fn((key: string, value: string) => {
+      store[key] = value;
+    });
     Object.defineProperty(globalThis, 'localStorage', {
-      value: mockStorage,
+      value: {
+        getItem: (key: string) => store[key] ?? null,
+        setItem,
+        removeItem: (key: string) => delete store[key],
+        clear: () => {
+          store = {};
+        },
+      },
       writable: true,
-      configurable: true
+      configurable: true,
     });
   });
 
-  test('should load default values when localStorage is empty', () => {
+  test('writes one complete default blob when storage is empty', () => {
     const state = new GameSaveState();
     expect(state.totalCores).toBe(0);
-    expect(state.shieldLvl).toBe(1);
-    expect(state.magnetLvl).toBe(1);
-    expect(state.tetherLvl).toBe(1);
+    expect(state.upgrades).toEqual({ shield: 1, magnet: 1, tether: 1 });
+    expect(setItem).toHaveBeenCalledTimes(1);
+    expect(setItem).toHaveBeenCalledWith(
+      SAVE_KEY,
+      expect.stringContaining('"version":7'),
+    );
   });
 
-  test('should load saved values from localStorage', () => {
-    localStorage.setItem('gravity_pivot_cores_v6', '100');
-    localStorage.setItem('gravity_pivot_shieldLvl_v6', '3');
-    localStorage.setItem('gravity_pivot_magnetLvl_v6', '4');
-    localStorage.setItem('gravity_pivot_tetherLvl_v6', '2');
+  test('migrates valid legacy balances, scores, skins, and Daily v1 records once', () => {
+    store.gravity_pivot_cores_v6 = '100';
+    store.gravity_pivot_shieldLvl_v6 = '3';
+    store.gravity_pivot_magnetLvl_v6 = '4';
+    store.gravity_pivot_tetherLvl_v6 = '2';
+    store.gravity_pivot_highScores_v6 = JSON.stringify([
+      { score: 100, sector: 2, date: 'Oct 6' },
+    ]);
+    store.gravity_pivot_unlockedSkins_v6 = '[0,1,2]';
+    store.gravity_pivot_activeSkinId_v6 = '2';
+    store.gravity_pivot_dailyBest_v6 = '999';
+    store.gravity_pivot_dailyBestDate_v6 = new Date().toDateString();
+    store.gravity_pivot_dailyChallengeRecords_v1 = JSON.stringify({
+      'v1:2026-10-06': 120,
+    });
 
     const state = new GameSaveState();
     expect(state.totalCores).toBe(100);
-    expect(state.shieldLvl).toBe(3);
-    expect(state.magnetLvl).toBe(4);
-    expect(state.tetherLvl).toBe(2);
+    expect(state.upgrades).toEqual({ shield: 3, magnet: 4, tether: 2 });
+    expect(state.highScores).toEqual([
+      { score: 100, sector: 2, date: 'Oct 6' },
+    ]);
+    expect(state.unlockedSkins).toEqual([0, 1, 2]);
+    expect(state.activeSkinId).toBe(2);
+    expect(state.getDailyChallengeBest('2026-10-06', 1)).toBe(120);
+    expect(state.getDailyChallengeBest('2026-10-06', 0)).toBe(0);
+    expect(JSON.parse(store[SAVE_KEY]).dailyRecords).toEqual({
+      '2026-10-06@1': 120,
+    });
+    expect(store.gravity_pivot_cores_v6).toBe('100');
+    expect(store.gravity_pivot_dailyBest_v6).toBe('999');
+    expect(setItem).toHaveBeenCalledTimes(1);
   });
 
-  test('should guard against negative and non-finite numbers', () => {
-    localStorage.setItem('gravity_pivot_cores_v6', '-50');
-    localStorage.setItem('gravity_pivot_shieldLvl_v6', 'NaN');
-    localStorage.setItem('gravity_pivot_magnetLvl_v6', 'Infinity');
-    localStorage.setItem('gravity_pivot_tetherLvl_v6', '0');
+  test('repairs negative, fractional, nonfinite, invalid score and skin values', () => {
+    store.gravity_pivot_cores_v6 = '-50';
+    store.gravity_pivot_shieldLvl_v6 = '1.5';
+    store.gravity_pivot_magnetLvl_v6 = 'Infinity';
+    store.gravity_pivot_tetherLvl_v6 = '999';
+    store.gravity_pivot_highScores_v6 = JSON.stringify([
+      { score: -1, sector: 1, date: 'bad' },
+      { score: 20.5, sector: 2, date: 'bad' },
+      { score: 30, sector: 1, date: 'valid' },
+      { score: Number.MAX_SAFE_INTEGER + 1, sector: 3, date: 'bad' },
+    ]);
+    store.gravity_pivot_unlockedSkins_v6 = '[1,1,55,-1,"2"]';
+    store.gravity_pivot_activeSkinId_v6 = '2';
 
     const state = new GameSaveState();
     expect(state.totalCores).toBe(0);
-    expect(state.shieldLvl).toBe(1);
-    expect(state.magnetLvl).toBe(1);
-    expect(state.tetherLvl).toBe(1);
+    expect(state.upgrades).toEqual({ shield: 1, magnet: 1, tether: 10 });
+    expect(state.highScores).toEqual([{ score: 30, sector: 1, date: 'valid' }]);
+    expect(state.unlockedSkins).toEqual([0, 1]);
+    expect(state.activeSkinId).toBe(0);
   });
 
-  test('should cap loaded level values to maxUpgradeLevel', () => {
-    localStorage.setItem('gravity_pivot_cores_v6', '100');
-    localStorage.setItem('gravity_pivot_shieldLvl_v6', '999');
-    localStorage.setItem('gravity_pivot_magnetLvl_v6', '12');
-    localStorage.setItem('gravity_pivot_tetherLvl_v6', '6');
-
+  test('backs up malformed current data before repairing it', () => {
+    const damaged = '{broken';
+    store[SAVE_KEY] = damaged;
     const state = new GameSaveState();
-    expect(state.shieldLvl).toBe(10);
-    expect(state.magnetLvl).toBe(10);
-    expect(state.tetherLvl).toBe(6);
+    expect(state.totalCores).toBe(0);
+    expect(store.gravity_pivot_save_corrupt_backup).toBe(damaged);
+    expect(JSON.parse(store[SAVE_KEY]).version).toBe(7);
   });
 
-  test('should serialize and save values correctly', () => {
+  test('backs up and repairs invalid fields in a current v7 blob', () => {
+    const invalid: SaveV7 = {
+      version: 7,
+      totalCores: -12,
+      upgrades: { shield: 1.5, magnet: 2, tether: 3 },
+      highScores: [{ score: -1, sector: 1, date: 'invalid' }],
+      skins: { unlockedIds: [1, 1, 99], activeId: 99 },
+      preferences: { muted: false, reducedMotion: false },
+      dailyRecords: { '2026-10-06@1': -50 },
+    };
+    store[SAVE_KEY] = JSON.stringify(invalid);
     const state = new GameSaveState();
-    state.totalCores = 50;
-    state.shieldLvl = 10;
-    state.magnetLvl = 2;
-    state.tetherLvl = 3;
-    state.save();
 
-    expect(localStorage.getItem('gravity_pivot_cores_v6')).toBe('50');
-    expect(localStorage.getItem('gravity_pivot_shieldLvl_v6')).toBe('10');
-    expect(localStorage.getItem('gravity_pivot_magnetLvl_v6')).toBe('2');
-    expect(localStorage.getItem('gravity_pivot_tetherLvl_v6')).toBe('3');
+    expect(state.totalCores).toBe(0);
+    expect(state.upgrades).toEqual({ shield: 1, magnet: 2, tether: 3 });
+    expect(state.highScores).toEqual([]);
+    expect(state.unlockedSkins).toEqual([0, 1]);
+    expect(state.activeSkinId).toBe(0);
+    expect(state.getDailyChallengeBest('2026-10-06', 1)).toBe(0);
+    expect(store.gravity_pivot_save_corrupt_backup).toBe(
+      JSON.stringify(invalid),
+    );
   });
 
-  test('should sort, serialize and cap high scores leaderboard to top 5', () => {
+  test('does not replace corrupt data when a backup cannot be written', () => {
+    const damaged = '{broken';
+    store[SAVE_KEY] = damaged;
+    setItem.mockImplementation((key: string, value: string) => {
+      if (key.includes('corrupt_backup')) throw new Error('quota denied');
+      store[key] = value;
+    });
     const state = new GameSaveState();
+    expect(state.totalCores).toBe(0);
+    expect(store[SAVE_KEY]).toBe(damaged);
+    state.awardCores(5);
+    expect(state.totalCores).toBe(5);
+    expect(store[SAVE_KEY]).toBe(damaged);
+  });
+
+  test('failed migration writes keep v6 source keys and gameplay available', () => {
+    store.gravity_pivot_cores_v6 = '45';
+    setItem.mockImplementation(() => {
+      throw new Error('quota exceeded');
+    });
+    const state = new GameSaveState();
+    expect(state.totalCores).toBe(45);
+    expect(store.gravity_pivot_cores_v6).toBe('45');
+    expect(state.awardCores(2)).toBe(47);
+  });
+
+  test('leaves unsupported future saves byte-for-byte untouched', () => {
+    const future = JSON.stringify({
+      version: 8,
+      totalCores: 12345,
+      extra: true,
+    });
+    store[SAVE_KEY] = future;
+    const state = new GameSaveState();
+    state.awardCores(10);
+    expect(state.totalCores).toBe(10);
+    expect(store[SAVE_KEY]).toBe(future);
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  test('remains playable when storage access or writes are denied', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: {
+        getItem: () => {
+          throw new Error('storage blocked');
+        },
+        setItem: () => {
+          throw new Error('storage blocked');
+        },
+      },
+      writable: true,
+      configurable: true,
+    });
+    const state = new GameSaveState();
+    expect(state.purchaseUpgrade('shield')).toBe(false);
+    expect(state.awardCores(10)).toBe(10);
+  });
+
+  test('exposes copied readonly snapshots rather than mutable save internals', () => {
+    const state = new GameSaveState();
+    state.awardCores(100);
     state.addHighScore(100, 1);
-    state.addHighScore(500, 3);
-    state.addHighScore(300, 2);
-    state.addHighScore(50, 1);
-    state.addHighScore(400, 2);
-    state.addHighScore(200, 1);
+    const upgrades = state.upgrades as { shield: number };
+    upgrades.shield = 10;
+    const scores = state.highScores as Array<{
+      score: number;
+      sector: number;
+      date: string;
+    }>;
+    scores[0].score = 9999;
+    const skins = state.unlockedSkins as number[];
+    skins.push(2);
+    const snapshot = state.getSnapshot();
+    snapshot.upgrades.shield = 9;
+    snapshot.skins.unlockedIds.push(3);
 
-    expect(state.highScores.length).toBe(5);
-    expect(state.highScores[0].score).toBe(500);
-    expect(state.highScores[1].score).toBe(400);
-    expect(state.highScores[2].score).toBe(300);
-    expect(state.highScores[3].score).toBe(200);
-    expect(state.highScores[4].score).toBe(100);
-
-    const loaded = new GameSaveState();
-    expect(loaded.highScores.length).toBe(5);
-    expect(loaded.highScores[0].score).toBe(500);
+    expect(state.upgrades.shield).toBe(1);
+    expect(state.highScores[0].score).toBe(100);
+    expect(state.unlockedSkins).toEqual([0]);
   });
 
-  test('should serialize and validate unlocked skins and active skin ID', () => {
+  test('records top five valid Standard scores', () => {
     const state = new GameSaveState();
-    state.unlockedSkins = [0, 1, 2];
-    state.activeSkinId = 2;
-    state.save();
-
-    const loaded = new GameSaveState();
-    expect(loaded.unlockedSkins).toEqual([0, 1, 2]);
-    expect(loaded.activeSkinId).toBe(2);
+    for (const score of [100, 500, 300, 50, 400, 200]) {
+      state.addHighScore(score, 1);
+    }
+    expect(state.highScores.map((score) => score.score)).toEqual([
+      500, 400, 300, 200, 100,
+    ]);
+    state.addHighScore(Number.NaN, 1);
+    state.addHighScore(100, 0);
+    expect(state.highScores).toHaveLength(5);
   });
 
-  test('should initialize and serialize daily best scores correctly', () => {
+  test('purchase APIs enforce upgrade costs, caps, and skin ownership', () => {
     const state = new GameSaveState();
-    const isNew = state.updateDailyBest(120);
-    expect(isNew).toBe(true);
-    expect(state.dailyBest).toBe(120);
-    expect(state.dailyBestDate).toBe(new Date().toDateString());
-
-    const isBetter = state.updateDailyBest(90);
-    expect(isBetter).toBe(false);
-    expect(state.dailyBest).toBe(120);
-
-    const isDoubleBetter = state.updateDailyBest(150);
-    expect(isDoubleBetter).toBe(true);
-    expect(state.dailyBest).toBe(150);
-
-    const loaded = new GameSaveState();
-    expect(loaded.dailyBest).toBe(150);
-    expect(loaded.dailyBestDate).toBe(new Date().toDateString());
+    expect(state.purchaseUpgrade('shield')).toBe(false);
+    state.awardCores(1000);
+    expect(state.purchaseUpgrade('shield')).toBe(true);
+    expect(state.shieldLvl).toBe(2);
+    expect(state.equipSkin(1)).toBe(false);
+    expect(state.purchaseNextSkin()).toBe('purchased');
+    expect(state.activeSkinId).toBe(1);
+    expect(state.equipSkin(0)).toBe(true);
+    expect(state.activeSkinId).toBe(0);
+    expect(state.equipSkin(99)).toBe(false);
   });
 
-  test('should reset daily best when date shifts', () => {
-    localStorage.setItem('gravity_pivot_dailyBest_v6', '350');
-    localStorage.setItem('gravity_pivot_dailyBestDate_v6', 'Mon Jan 01 2026');
-
+  test('Daily records are challenge and version scoped with 30-day retention', () => {
     const state = new GameSaveState();
-    expect(state.dailyBest).toBe(0);
-    expect(state.dailyBestDate).toBe(new Date().toDateString());
+    for (let day = 1; day <= 35; day++) {
+      const id = new Date(Date.UTC(2026, 0, day)).toISOString().slice(0, 10);
+      state.updateDailyChallengeBest(id, 1, day);
+    }
+    state.updateDailyChallengeBest('2020-01-01', 1, 77);
+    const days = new Set(
+      Object.keys(state.dailyRecords).map((key) => key.split('@')[0]),
+    );
+    expect(days.size).toBe(30);
+    expect(state.getDailyChallengeBest('2020-01-01', 1)).toBe(77);
+    expect(state.getDailyChallengeBest('2026-02-04', 1)).toBe(35);
+    expect(state.getDailyChallengeBest('2026-02-04', 2)).toBe(0);
+  });
+
+  test('rejects impossible challenge dates and rules versions', () => {
+    const state = new GameSaveState();
+    expect(state.updateDailyChallengeBest('2026-02-30', 1, 100)).toBe(false);
+    expect(state.updateDailyChallengeBest('2026-10-06', 0, 100)).toBe(false);
+    expect(state.getDailyChallengeBest('2026-02-30', 1)).toBe(0);
+  });
+
+  test('persists explicit motion and sound preferences including system mode', () => {
+    const state = new GameSaveState();
+    expect(state.preferences.reducedMotion).toBeNull();
+    state.setPreference('reducedMotion', true);
+    state.setPreference('muted', true);
+    const restored = new GameSaveState();
+    expect(restored.preferences).toEqual({ muted: true, reducedMotion: true });
+    restored.setPreference('reducedMotion', null);
+    expect(new GameSaveState().preferences.reducedMotion).toBeNull();
   });
 });

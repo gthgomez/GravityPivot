@@ -2,11 +2,11 @@ import { GameSaveState } from './state/saveState';
 import { SynthManager } from './audio/synth';
 import { ParticleEngine } from './effects/particles';
 import { GravityPivotEngine } from './engine/engine';
+import { createDailyContext } from './engine/runRules';
 import { CanvasRenderer } from './renderer/canvasRenderer';
 import { UIController } from './ui/uiController';
-import { EngineCallbacks, CalibrationState } from './types';
-import { GamePhase, ViewTab, DEFAULT_CONFIG, upgradeCost, SHIP_SKINS } from './constants';
-import { SeededRandom } from './utils/seededRandom';
+import { EngineCallbacks, CalibrationState, RunContext } from './types';
+import { GamePhase, ViewTab, DEFAULT_CONFIG, SHIP_SKINS } from './constants';
 import './style.css';
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -15,31 +15,53 @@ window.addEventListener('DOMContentLoaded', () => {
   const synth = new SynthManager();
   const particles = new ParticleEngine(DEFAULT_CONFIG.maxParticles);
   const ui = new UIController();
-  
+
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   const renderer = new CanvasRenderer(canvas);
 
   let activeTab = ViewTab.COCKPIT;
   let isDailyMode = false;
+  let runContext: RunContext = { mode: 'STANDARD' };
 
   const startRun = (isDaily: boolean) => {
+    particles.clear();
     if (isDaily) {
-      const today = new Date();
-      const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-      const prng = new SeededRandom(seed);
-      engine.setRandomFn(() => prng.next());
-      ui.appendLog(`Engaging daily telemetry challenge. Seed: ${seed}`, 'alert');
-      ui.updatePersonalBest(saveState.dailyBest, true);
+      const dailyContext = createDailyContext(new Date());
+      runContext = dailyContext;
+      ui.appendLog(
+        `Daily challenge ${dailyContext.challengeId}, rules v${dailyContext.rulesVersion}. Tether auto-selects the nearest anchor.`,
+        'alert',
+      );
+      ui.updatePersonalBest(
+        saveState.getDailyChallengeBest(
+          dailyContext.challengeId,
+          dailyContext.rulesVersion,
+        ),
+        true,
+      );
     } else {
-      engine.setRandomFn(Math.random);
+      runContext = { mode: 'STANDARD' };
       ui.appendLog('Standard navigation path loaded.', 'info');
       ui.updatePersonalBest(saveState.highScores[0]?.score ?? 0, false);
     }
-    engine.initializeLevel();
+    engine.initializeLevel(runContext, saveState.upgrades);
+    ui.updateCoreCount(
+      engine.getSparkState().collectedInRun,
+      saveState.totalCores,
+    );
     engine.setGamePhase(GamePhase.FLYING);
+    document.querySelector('.canvas-card')?.classList.add('run-active');
+    canvas.focus({ preventScroll: true });
+    ui.announceStatus(
+      isDaily ? 'Daily challenge started.' : 'Standard flight started.',
+    );
     ui.showLaunchOverlay(false);
+    ui.showPauseOverlay(false);
+    ui.hideGameOverPanel();
+    resetFrameClock();
     synth.init();
-    synth.resumeContext();
+    synth.setMute(saveState.preferences.muted);
+    if (!synth.getIsMuted()) synth.resumeContext();
   };
 
   // 2. Wire up callbacks (engine -> UI/audio)
@@ -50,25 +72,42 @@ window.addEventListener('DOMContentLoaded', () => {
     onScoreChanged: (score, combo) => {
       ui.updateScore(score, combo);
     },
-    onCoreCollected: (runCores, totalCores, coreX, coreY) => {
+    onCoreCollected: (runCores, coreX, coreY) => {
+      const totalCores = saveState.awardCores(1);
       ui.updateCoreCount(runCores, totalCores);
       synth.playCoreCollected();
       particles.spawn(coreX, coreY, '#fbbf24', 3, 6);
-      const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
-      renderer.spawnFloatingText(coreX + cameraOffsetX, coreY, '+150', '#fbbf24');
+      renderer.spawnWorldFloatingText(
+        coreX,
+        coreY,
+        '+150',
+        '#fbbf24',
+        engine.getSparkState().x,
+      );
     },
     onSectorLeap: (sectorIndex) => {
       synth.playSectorUp();
       ui.showSectorPopup(sectorIndex);
-      const scale = window.devicePixelRatio || 1;
-      renderer.spawnFloatingText(canvas.width / (2 * scale), 100, 'SECTOR CLEARED!', '#22d3ee');
+      const logicalSize = renderer.getLogicalSize();
+      if (!logicalSize) return;
+      renderer.spawnFloatingText(
+        logicalSize.width / 2,
+        100,
+        'SECTOR CLEARED!',
+        '#22d3ee',
+      );
     },
     onNearMiss: (combo, x, y) => {
       synth.playPing();
       particles.spawn(x, y, combo === 5 ? '#ec4899' : '#06b6d4', 4, 12);
       renderer.triggerShake(2);
-      const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
-      renderer.spawnFloatingText(x + cameraOffsetX, y, `x${combo} COMBO!`, combo === 5 ? '#ec4899' : '#06b6d4');
+      renderer.spawnWorldFloatingText(
+        x,
+        y,
+        `x${combo} COMBO!`,
+        combo === 5 ? '#ec4899' : '#06b6d4',
+        engine.getSparkState().x,
+      );
     },
     onDangerProximity: (active) => {
       ui.showDangerWarning(active);
@@ -77,16 +116,57 @@ window.addEventListener('DOMContentLoaded', () => {
       synth.playShieldBounce();
       particles.spawn(x, y, '#10b981', 5, 12);
       renderer.triggerShake(6);
-      const cameraOffsetX = Math.round(-engine.getSparkState().x + 150);
-      renderer.spawnFloatingText(x + cameraOffsetX, y, '-1 SHIELD', '#f43f5e');
+      renderer.spawnWorldFloatingText(
+        x,
+        y,
+        '-1 SHIELD',
+        '#f43f5e',
+        engine.getSparkState().x,
+      );
     },
-    onCrash: (x, y, finalScore, sectorReached, isNewHighScore, isNewDailyBest, dailyBest) => {
+    onRunEnded: (result) => {
+      document.querySelector('.canvas-card')?.classList.remove('run-active');
+      ui.announceStatus('Flight ended after a collision. Results are shown.');
+      const { x, y, score: finalScore, sectorReached } = result;
+      const dailyContext =
+        result.context.mode === 'DAILY' ? result.context : null;
+      const endedInDaily = dailyContext !== null;
+      const previousBest = dailyContext
+        ? saveState.getDailyChallengeBest(
+            dailyContext.challengeId,
+            dailyContext.rulesVersion,
+          )
+        : (saveState.highScores[0]?.score ?? 0);
+      const isNewHighScore = !endedInDaily && finalScore > previousBest;
+      const isNewDailyBest = dailyContext
+        ? saveState.updateDailyChallengeBest(
+            dailyContext.challengeId,
+            dailyContext.rulesVersion,
+            finalScore,
+          )
+        : false;
+      if (!endedInDaily) saveState.addHighScore(finalScore, sectorReached);
+      const dailyBest = dailyContext
+        ? saveState.getDailyChallengeBest(
+            dailyContext.challengeId,
+            dailyContext.rulesVersion,
+          )
+        : 0;
+      const bestScore = endedInDaily
+        ? dailyBest
+        : (saveState.highScores[0]?.score ?? finalScore);
       synth.playExplosion();
       particles.spawn(x, y, '#f43f5e', 8, 30);
       renderer.triggerShake(15);
-      const scale = window.devicePixelRatio || 1;
-      renderer.spawnFloatingText(canvas.width / (2 * scale), canvas.height / (2 * scale) - 30, 'CRASHED!', '#f43f5e');
-      const bestScore = saveState.highScores[0]?.score ?? finalScore;
+      const logicalSize = renderer.getLogicalSize();
+      if (logicalSize) {
+        renderer.spawnFloatingText(
+          logicalSize.width / 2,
+          logicalSize.height / 2 - 30,
+          'CRASHED!',
+          '#f43f5e',
+        );
+      }
       ui.showGameOverPanel(
         finalScore,
         sectorReached,
@@ -94,10 +174,10 @@ window.addEventListener('DOMContentLoaded', () => {
         bestScore,
         isNewDailyBest,
         dailyBest,
-        isDailyMode
+        endedInDaily,
       );
-      ui.updateLeaderboardDisplay(saveState.highScores);
-      ui.updatePersonalBest(isDailyMode ? dailyBest : bestScore, isDailyMode);
+      if (!endedInDaily) ui.updateLeaderboardDisplay(saveState.highScores);
+      ui.updatePersonalBest(bestScore, endedInDaily);
     },
     onTetherAcquired: () => {
       synth.playPing();
@@ -106,12 +186,16 @@ window.addEventListener('DOMContentLoaded', () => {
       synth.playReleaseWhoosh();
     },
     onTelemetryUpdate: (sigma, velocity, sectorProgress, sectorIndex) => {
-      ui.updateTelemetry(sigma, velocity, `${engine.getConfig().maxTetherRadius}px`);
+      ui.updateTelemetry(
+        sigma,
+        velocity,
+        `${engine.getConfig().maxTetherRadius}px`,
+      );
       ui.updateSectorProgress(sectorProgress, sectorIndex);
     },
     onLog: (message, style) => {
       ui.appendLog(message, style);
-    }
+    },
   };
 
   // 3. Setup synth parameters callback
@@ -121,7 +205,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 4. Initialize engine
   const calibration: CalibrationState = ui.getCalibrationState();
-  const engine = new GravityPivotEngine(saveState, callbacks, calibration);
+  const engine = new GravityPivotEngine(
+    saveState.upgrades,
+    callbacks,
+    calibration,
+  );
 
   // 5. Game loop setup
   let lastTime = performance.now();
@@ -132,26 +220,32 @@ window.addEventListener('DOMContentLoaded', () => {
     const elapsed = Math.min((timestamp - lastTime) / 1000, 0.1);
     lastTime = timestamp;
 
-    const gamePhase = engine.getGamePhase();
-
-    if (gamePhase === GamePhase.FLYING) {
+    if (engine.getGamePhase() === GamePhase.FLYING) {
       accumulator += elapsed;
       // Read calibration dynamic parameters from UI once per frame
       const currentCal = ui.getCalibrationState();
       engine.updateCalibration(currentCal);
 
-      while (accumulator >= physicsTimeStep) {
+      while (
+        accumulator >= physicsTimeStep &&
+        engine.getGamePhase() === GamePhase.FLYING
+      ) {
         engine.physicsTick(physicsTimeStep);
         accumulator -= physicsTimeStep;
       }
-      // Update synth dynamic audio parameters based on speed, combo, and sector
-      const spark = engine.getSparkState();
-      const speed = Math.hypot(spark.vx, spark.vy);
-      synth.updateParams(speed / 12, spark.combo, engine.getSectorIndex());
+      if (engine.getGamePhase() === GamePhase.FLYING) {
+        // Update synth dynamic audio parameters based on speed, combo, and sector
+        const spark = engine.getSparkState();
+        const speed = Math.hypot(spark.vx, spark.vy);
+        synth.updateParams(speed / 12, spark.combo, engine.getSectorIndex());
+      } else {
+        accumulator = 0;
+      }
     } else {
-      // Still update particles on splash/pause/game-over screens
-      particles.update();
+      accumulator = 0;
     }
+
+    particles.update(elapsed);
 
     // Always draw current state
     const spark = engine.getSparkState();
@@ -162,8 +256,8 @@ window.addEventListener('DOMContentLoaded', () => {
       particles,
       engine.getConfig().maxTetherRadius,
       engine.getSectorIndex(),
-      gamePhase,
-      saveState.activeSkinId
+      engine.getGamePhase(),
+      saveState.activeSkinId,
     );
 
     requestAnimationFrame(gameLoop);
@@ -171,47 +265,129 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // 6. Bind UI element updates & resizing
   const resizeGame = () => {
-    const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : canvas.width;
-    const parentHeight = activeTab === ViewTab.COCKPIT ? 320 : 260;
-    renderer.setupResizing(parentWidth, parentHeight);
+    const rect = canvas.getBoundingClientRect();
+    renderer.setupResizing(rect.width, rect.height);
   };
   window.addEventListener('resize', resizeGame);
+  const resizeObserver = new ResizeObserver(resizeGame);
+  resizeObserver.observe(canvas.parentElement ?? canvas);
   resizeGame(); // Initial resize alignment
+  requestAnimationFrame(resizeGame); // Reconcile after browser layout settles
+
+  function resetFrameClock(): void {
+    accumulator = 0;
+    lastTime = performance.now();
+  }
+
+  function pauseRun(): void {
+    if (engine.getGamePhase() !== GamePhase.FLYING) return;
+    cancelHeldInputs();
+    engine.setGamePhase(GamePhase.PAUSED);
+    ui.showPauseOverlay(true);
+    ui.announceStatus('Flight paused.');
+    synth.suspendContext();
+    resetFrameClock();
+  }
+
+  function resumeRun(): void {
+    if (engine.getGamePhase() !== GamePhase.PAUSED) return;
+    if (activeTab !== ViewTab.COCKPIT) {
+      activeTab = ui.switchTab(ViewTab.COCKPIT, activeTab);
+      resizeGame();
+    }
+    engine.setGamePhase(GamePhase.FLYING);
+    canvas.focus({ preventScroll: true });
+    ui.showPauseOverlay(false);
+    ui.announceStatus('Flight resumed.');
+    resetFrameClock();
+    if (!synth.getIsMuted()) synth.resumeContext();
+  }
+
+  function resetToSplash(): void {
+    cancelHeldInputs();
+    document.querySelector('.canvas-card')?.classList.remove('run-active');
+    particles.clear();
+    engine.initializeLevel(runContext, saveState.upgrades);
+    ui.updateCoreCount(
+      engine.getSparkState().collectedInRun,
+      saveState.totalCores,
+    );
+    ui.hideGameOverPanel();
+    ui.showLaunchOverlay(true);
+    ui.showPauseOverlay(false);
+    synth.suspendContext();
+    resetFrameClock();
+  }
 
   ui.syncUpgradeButtons(saveState);
   ui.syncSkinButton(saveState);
   ui.updateCoreCount(0, saveState.totalCores);
   ui.updateLeaderboardDisplay(saveState.highScores);
   ui.updatePersonalBest(saveState.highScores[0]?.score ?? 0, false);
+  const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let reducedMotion =
+    saveState.preferences.reducedMotion ?? motionQuery.matches;
+  renderer.setReducedMotion(reducedMotion);
+  particles.setReducedMotion(reducedMotion);
+  document.documentElement.dataset.reducedMotion = String(reducedMotion);
+
+  const debugMode =
+    new URLSearchParams(window.location.search).get('debug') === '1';
+  document.querySelectorAll<HTMLElement>('.debug-only').forEach((element) => {
+    element.hidden = !debugMode;
+  });
+  synth.restoreMutePreference(saveState.preferences.muted);
 
   // 7. Bind controls & input handlers
-  const handleTetherDown = (e: MouseEvent | TouchEvent) => {
-    if (e.cancelable) e.preventDefault();
-    if (activeTab !== ViewTab.COCKPIT) return;
-    
-    const phase = engine.getGamePhase();
-    if (phase === GamePhase.SPLASH) return;
+  const heldSources = new Set<string>();
+  let activePointerId: number | null = null;
+  function cancelHeldInputs(): void {
+    heldSources.clear();
+    activePointerId = null;
+    engine.releaseTether();
+  }
 
+  const handlePointerDown = (event: PointerEvent) => {
+    if (!event.isPrimary || event.button !== 0 || activePointerId !== null)
+      return;
+    if (activeTab !== ViewTab.COCKPIT) return;
+    const phase = engine.getGamePhase();
+    if (phase === GamePhase.SPLASH || phase === GamePhase.PAUSED) return;
+    event.preventDefault();
     if (phase === GamePhase.CRASHED) {
       ui.hideGameOverPanel();
       startRun(isDailyMode);
+      canvas.focus({ preventScroll: true });
       return;
     }
-
-    const touch = (e as TouchEvent).touches ? (e as TouchEvent).touches[0] : (e as MouseEvent);
-    const coords = ui.getWorldCoords(touch.clientX, touch.clientY, engine.getSparkState().x, canvas);
-    engine.acquireTether(coords.worldX, coords.worldY);
+    const coords = ui.getWorldCoords(
+      event.clientX,
+      event.clientY,
+      engine.getSparkState().x,
+      canvas,
+    );
+    if (!coords) return;
+    activePointerId = event.pointerId;
+    heldSources.add('pointer');
+    canvas.setPointerCapture(event.pointerId);
+    if (heldSources.size === 1)
+      engine.acquireTether(coords.worldX, coords.worldY);
   };
 
-  const handleTetherUp = (e: MouseEvent | TouchEvent) => {
-    if (e.cancelable) e.preventDefault();
-    engine.releaseTether();
+  const releasePointer = (event: PointerEvent) => {
+    if (event.pointerId !== activePointerId) return;
+    activePointerId = null;
+    heldSources.delete('pointer');
+    if (heldSources.size === 0) engine.releaseTether();
   };
 
-  canvas.addEventListener('mousedown', handleTetherDown);
-  window.addEventListener('mouseup', handleTetherUp);
-  canvas.addEventListener('touchstart', handleTetherDown, { passive: false });
-  window.addEventListener('touchend', handleTetherUp, { passive: false });
+  canvas.addEventListener('pointerdown', handlePointerDown);
+  canvas.addEventListener('pointerup', releasePointer);
+  canvas.addEventListener('pointercancel', releasePointer);
+  canvas.addEventListener('lostpointercapture', releasePointer);
+  window.addEventListener('pointerup', releasePointer);
+  window.addEventListener('pointercancel', releasePointer);
+  window.addEventListener('blur', cancelHeldInputs);
 
   // Splash/Pause overlays buttons
   const btnSplashLaunch = document.getElementById('btn-splash-launch');
@@ -233,74 +409,84 @@ window.addEventListener('DOMContentLoaded', () => {
   const btnPlay = document.getElementById('btn-play');
   if (btnPlay) {
     btnPlay.addEventListener('click', () => {
-      ui.showLaunchOverlay(true);
-      ui.showPauseOverlay(false);
+      resetToSplash();
     });
   }
 
   const resumeBtn = document.getElementById('resume-btn');
   if (resumeBtn) {
     resumeBtn.addEventListener('click', () => {
-      const tabCockpit = document.getElementById('tab-cockpit');
-      if (tabCockpit) tabCockpit.click();
+      resumeRun();
     });
   }
 
   // Calibration Sliders bindings
-  const sSpeed = document.getElementById('slide-speed') as HTMLInputElement | null;
+  const sSpeed = document.getElementById(
+    'slide-speed',
+  ) as HTMLInputElement | null;
   if (sSpeed) {
     sSpeed.addEventListener('input', (e) => {
       const val = parseFloat((e.target as HTMLInputElement).value);
-      engine.setBaseSpeed(val);
+      const applied = engine.setBaseSpeed(val);
       const vSpeed = document.getElementById('val-speed');
-      if (vSpeed) vSpeed.textContent = val.toFixed(1);
+      if (vSpeed) {
+        vSpeed.textContent = applied
+          ? val.toFixed(1)
+          : engine.getConfig().baseSpeed.toFixed(1);
+      }
+      if (!applied) sSpeed.value = engine.getConfig().baseSpeed.toFixed(1);
     });
   }
 
-  const sSubsteps = document.getElementById('slide-substeps') as HTMLInputElement | null;
+  const sSubsteps = document.getElementById(
+    'slide-substeps',
+  ) as HTMLInputElement | null;
   if (sSubsteps) {
     sSubsteps.addEventListener('input', (e) => {
       const val = parseInt((e.target as HTMLInputElement).value, 10);
-      engine.getConfig().subSteps = val;
+      const applied = engine.setSubSteps(val);
       const vSub = document.getElementById('val-substeps');
-      if (vSub) vSub.textContent = val.toString();
+      if (vSub)
+        vSub.textContent = String(applied ? val : engine.getConfig().subSteps);
+      if (!applied) sSubsteps.value = String(engine.getConfig().subSteps);
     });
   }
 
-  const sBuffer = document.getElementById('slide-buffer') as HTMLInputElement | null;
+  const sBuffer = document.getElementById(
+    'slide-buffer',
+  ) as HTMLInputElement | null;
   if (sBuffer) {
     sBuffer.addEventListener('input', (e) => {
       const val = parseInt((e.target as HTMLInputElement).value, 10);
-      engine.getConfig().hazardProximityBuffer = val;
+      const applied = engine.setHazardProximityBuffer(val);
       const vBuf = document.getElementById('val-buffer');
-      if (vBuf) vBuf.textContent = `${val}px`;
+      const buffer = applied ? val : engine.getConfig().hazardProximityBuffer;
+      if (vBuf) vBuf.textContent = `${buffer}px`;
+      if (!applied) sBuffer.value = String(buffer);
     });
   }
 
   // Buy upgrade buttons bindings
-  const buyUpgrade = (btnId: string, type: 'shield' | 'magnet' | 'tether', costMultiplier: number) => {
+  const buyUpgrade = (btnId: string, type: 'shield' | 'magnet' | 'tether') => {
     const btn = document.getElementById(btnId);
     if (btn) {
       btn.addEventListener('click', () => {
-        let level = 1;
-        if (type === 'shield') level = saveState.shieldLvl;
-        else if (type === 'magnet') level = saveState.magnetLvl;
-        else if (type === 'tether') level = saveState.tetherLvl;
-
-        const cost = upgradeCost(costMultiplier, level);
-        if (saveState.totalCores >= cost) {
-          saveState.totalCores -= cost;
-          if (type === 'shield') saveState.shieldLvl++;
-          else if (type === 'magnet') saveState.magnetLvl++;
-          else if (type === 'tether') saveState.tetherLvl++;
-
-          saveState.save();
-          engine.syncUpgrades();
+        if (saveState.purchaseUpgrade(type)) {
+          engine.syncUpgrades(saveState.upgrades);
           ui.syncUpgradeButtons(saveState);
-          ui.updateCoreCount(engine.getSparkState().collectedInRun, saveState.totalCores);
-          ui.appendLog(`Successfully installed hardware upgrade: ${type.toUpperCase()}`, 'success');
+          ui.updateCoreCount(
+            engine.getSparkState().collectedInRun,
+            saveState.totalCores,
+          );
+          ui.appendLog(
+            `Successfully installed hardware upgrade: ${type.toUpperCase()}`,
+            'success',
+          );
         } else {
-          ui.appendLog(`Insufficient core balance for upgrade: ${type.toUpperCase()}`, 'warn');
+          ui.appendLog(
+            `Upgrade unavailable: ${type.toUpperCase()} requires more cores or is at maximum level.`,
+            'warn',
+          );
           btn.classList.add('flash-error');
           setTimeout(() => {
             btn.classList.remove('flash-error');
@@ -310,41 +496,40 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  buyUpgrade('buy-shield-btn', 'shield', 10);
-  buyUpgrade('buy-magnet-btn', 'magnet', 15);
-  buyUpgrade('buy-tether-btn', 'tether', 20);
+  buyUpgrade('buy-shield-btn', 'shield');
+  buyUpgrade('buy-magnet-btn', 'magnet');
+  buyUpgrade('buy-tether-btn', 'tether');
 
   // Buy visual theme skin card binding
   const buySkinBtn = document.getElementById('buy-skin-btn');
   if (buySkinBtn) {
     buySkinBtn.addEventListener('click', () => {
-      const nextSkinId = saveState.unlockedSkins.length;
-      if (nextSkinId >= SHIP_SKINS.length) {
-        // All skins unlocked. Cycle activeSkinId through unlockedSkins.
-        const currentIdx = saveState.unlockedSkins.indexOf(saveState.activeSkinId);
-        const nextIdx = (currentIdx + 1) % saveState.unlockedSkins.length;
-        saveState.activeSkinId = saveState.unlockedSkins[nextIdx];
-        saveState.save();
+      const result = saveState.purchaseNextSkin();
+      if (result === 'cycled') {
         ui.syncSkinButton(saveState);
-        ui.appendLog(`Visual theme changed to: ${SHIP_SKINS[saveState.activeSkinId].name.toUpperCase()}`, 'info');
+        ui.appendLog(
+          `Visual theme changed to: ${SHIP_SKINS[saveState.activeSkinId].name.toUpperCase()}`,
+          'info',
+        );
+      } else if (result === 'purchased') {
+        ui.syncSkinButton(saveState);
+        ui.updateCoreCount(
+          engine.getSparkState().collectedInRun,
+          saveState.totalCores,
+        );
+        ui.appendLog(
+          `Successfully unlocked visual theme: ${SHIP_SKINS[saveState.activeSkinId].name.toUpperCase()}`,
+          'success',
+        );
       } else {
-        // Still skins to unlock
-        const nextSkin = SHIP_SKINS[nextSkinId];
-        if (saveState.totalCores >= nextSkin.cost) {
-          saveState.totalCores -= nextSkin.cost;
-          saveState.unlockedSkins.push(nextSkin.id);
-          saveState.activeSkinId = nextSkin.id;
-          saveState.save();
-          ui.syncSkinButton(saveState);
-          ui.updateCoreCount(engine.getSparkState().collectedInRun, saveState.totalCores);
-          ui.appendLog(`Successfully unlocked visual theme: ${nextSkin.name.toUpperCase()}`, 'success');
-        } else {
-          ui.appendLog(`Insufficient core balance for visual theme: ${nextSkin.name.toUpperCase()}`, 'warn');
-          buySkinBtn.classList.add('flash-error');
-          setTimeout(() => {
-            buySkinBtn.classList.remove('flash-error');
-          }, 400);
-        }
+        ui.appendLog(
+          'Insufficient core balance for the next visual theme.',
+          'warn',
+        );
+        buySkinBtn.classList.add('flash-error');
+        setTimeout(() => {
+          buySkinBtn.classList.remove('flash-error');
+        }, 400);
       }
     });
   }
@@ -361,6 +546,17 @@ window.addEventListener('DOMContentLoaded', () => {
   // Mute button binding
   const unmuteBtn = document.getElementById('unmute-btn');
   if (unmuteBtn) {
+    const syncMuteLabel = () => {
+      const muted = synth.getIsMuted();
+      unmuteBtn.setAttribute('aria-pressed', String(!muted));
+      const textSpan = unmuteBtn.querySelector('.synth-toggle-text');
+      if (textSpan) textSpan.textContent = muted ? 'SOUND OFF' : 'SOUND ON';
+      unmuteBtn.setAttribute(
+        'aria-label',
+        muted ? 'Turn sound on' : 'Turn sound off',
+      );
+    };
+    syncMuteLabel();
     unmuteBtn.addEventListener('click', () => {
       if (synth.getIsMuted()) {
         synth.setMute(false);
@@ -379,14 +575,51 @@ window.addEventListener('DOMContentLoaded', () => {
         const textSpan = unmuteBtn.querySelector('.synth-toggle-text');
         if (textSpan) textSpan.textContent = 'SYNTH MUTED';
       }
+      saveState.setPreference('muted', synth.getIsMuted());
+      syncMuteLabel();
     });
   }
+
+  const motionPreference = document.getElementById(
+    'motion-preference',
+  ) as HTMLSelectElement | null;
+  if (motionPreference) {
+    motionPreference.value =
+      saveState.preferences.reducedMotion === null
+        ? 'system'
+        : saveState.preferences.reducedMotion
+          ? 'reduced'
+          : 'full';
+    motionPreference.addEventListener('change', () => {
+      const value = motionPreference.value;
+      const preference = value === 'system' ? null : value === 'reduced';
+      saveState.setPreference('reducedMotion', preference);
+      reducedMotion = preference ?? motionQuery.matches;
+      renderer.setReducedMotion(reducedMotion);
+      particles.setReducedMotion(reducedMotion);
+      document.documentElement.dataset.reducedMotion = String(reducedMotion);
+    });
+  }
+  motionQuery.addEventListener('change', (event) => {
+    if (saveState.preferences.reducedMotion !== null) return;
+    reducedMotion = event.matches;
+    renderer.setReducedMotion(reducedMotion);
+    particles.setReducedMotion(reducedMotion);
+    document.documentElement.dataset.reducedMotion = String(reducedMotion);
+  });
 
   // Keyboard navigation & controls bindings
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (activeTab !== ViewTab.COCKPIT) return;
-    
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.isContentEditable ||
+        target.matches('button, input, textarea, select, a, [role="button"]'))
+    )
+      return;
+
     const phase = engine.getGamePhase();
     if (phase === GamePhase.SPLASH) return;
 
@@ -399,19 +632,21 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     if (e.code === 'Space') {
+      if (document.activeElement !== canvas) return;
       e.preventDefault();
-      engine.acquireTether();
+      const wasAlreadyHeld = heldSources.size > 0;
+      heldSources.add('keyboard');
+      if (!wasAlreadyHeld) engine.acquireTether();
     }
     if (e.code === 'KeyR') {
-      engine.initializeLevel();
-      ui.showLaunchOverlay(true);
-      ui.showPauseOverlay(false);
+      resetToSplash();
     }
   });
 
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
-      engine.releaseTether();
+      heldSources.delete('keyboard');
+      if (heldSources.size === 0) engine.releaseTether();
     }
   });
 
@@ -420,20 +655,22 @@ window.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById(tabId);
     if (btn) {
       btn.addEventListener('click', () => {
+        cancelHeldInputs();
         if (activeTab === tab) return;
 
         const phaseBefore = engine.getGamePhase();
         activeTab = ui.switchTab(tab, activeTab);
-        
+
         // Resize canvas size mapping to custom aspect ratio
         resizeGame();
 
         if (activeTab !== ViewTab.COCKPIT && phaseBefore === GamePhase.FLYING) {
-          engine.setGamePhase(GamePhase.PAUSED);
-          ui.showPauseOverlay(true);
-        } else if (activeTab === ViewTab.COCKPIT && phaseBefore === GamePhase.PAUSED) {
-          engine.setGamePhase(GamePhase.FLYING);
-          ui.showPauseOverlay(false);
+          pauseRun();
+        } else if (
+          activeTab === ViewTab.COCKPIT &&
+          phaseBefore === GamePhase.PAUSED
+        ) {
+          resumeRun();
         }
 
         ui.appendLog(`Switched HUD interface view to ${tab}.`, 'info');
@@ -449,13 +686,13 @@ window.addEventListener('DOMContentLoaded', () => {
   // Visibility page lifecycle listener
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
+      cancelHeldInputs();
       if (engine.getGamePhase() === GamePhase.FLYING) {
-        engine.setGamePhase(GamePhase.PAUSED);
-        ui.showPauseOverlay(true);
+        pauseRun();
       }
       synth.suspendContext();
     } else {
-      if (!synth.getIsMuted()) {
+      if (engine.getGamePhase() === GamePhase.FLYING && !synth.getIsMuted()) {
         synth.resumeContext();
       }
     }

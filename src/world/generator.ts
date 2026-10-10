@@ -1,31 +1,51 @@
-import { MapData, WallBounds } from '../types';
+import {
+  GenerationCursor,
+  MapData,
+  ReadonlyMapData,
+  WallBounds,
+} from '../types';
+import {
+  WORLD_VIEWPORT_CENTER,
+  WORLD_VIEWPORT_HEIGHT,
+  WORLD_WALL_MARGIN,
+} from '../constants';
 
 export class WorldGenerator {
   private static readonly STEP_RESOLUTION = 20;
+
+  public static createCursor(startX = 0): GenerationCursor {
+    return {
+      lastAnchorX: startX,
+      nextWallX: startX,
+      nextNodeId: 0,
+      nextCoreId: 0,
+    };
+  }
 
   /**
    * Procedurally appends nodes, cores, and wall splines to the map data.
    */
   public static appendSegmentData(
     map: MapData,
-    startX: number,
+    cursor: GenerationCursor,
     count: number,
     config: { maxTetherRadius: number; hazardProximityBuffer: number },
     guaranteeGaps: boolean,
-    randomFn: () => number = Math.random
-  ): void {
-    let currentX = startX;
-    const midY = 200;
+    randomFn: () => number = Math.random,
+  ): GenerationCursor {
+    const midY = WORLD_VIEWPORT_CENTER;
+    const firstCoreIndex = map.cores.length;
 
     for (let i = 0; i < count; i++) {
-      currentX += 250 + randomFn() * 100;
+      cursor.lastAnchorX += 250 + randomFn() * 100;
+      const currentX = cursor.lastAnchorX;
       const nodeY = midY + (randomFn() * 120 - 60);
-      
+
       map.nodes.push({
-        id: `node_${map.nodes.length}_${randomFn().toString(36).substring(2, 7)}`,
+        id: `node_${cursor.nextNodeId++}`,
         x: currentX,
         y: nodeY,
-        radius: 18 + randomFn() * 6
+        radius: 18 + randomFn() * 6,
       });
 
       const coreCount = 2 + Math.floor(randomFn() * 3);
@@ -33,56 +53,77 @@ export class WorldGenerator {
         const angle = randomFn() * Math.PI * 2;
         const dist = 60 + randomFn() * 60;
         map.cores.push({
-          id: `core_${map.cores.length}_${c}`,
+          id: `core_${cursor.nextCoreId++}`,
           x: currentX + Math.cos(angle) * dist,
           y: nodeY + Math.sin(angle) * dist,
           radius: 3.5,
-          collected: false
+          collected: false,
         });
       }
     }
 
-    let sampleX = startX;
-    while (sampleX < currentX + 800) {
+    while (
+      map.nodes.length > 0 &&
+      cursor.nextWallX < cursor.lastAnchorX + 800
+    ) {
       // Find nearest nodes using all active nodes
       const activeNodes = map.nodes;
-      if (activeNodes.length === 0) {
-        sampleX += this.STEP_RESOLUTION;
-        continue;
-      }
-      
       const closestNode = activeNodes.reduce((prev, curr) =>
-        Math.abs(curr.x - sampleX) < Math.abs(prev.x - sampleX) ? curr : prev
+        Math.abs(curr.x - cursor.nextWallX) <
+        Math.abs(prev.x - cursor.nextWallX)
+          ? curr
+          : prev,
       );
 
       let safetyEnvelope = config.maxTetherRadius;
       if (guaranteeGaps) {
-        safetyEnvelope = config.maxTetherRadius + config.hazardProximityBuffer + 30;
+        safetyEnvelope =
+          config.maxTetherRadius + config.hazardProximityBuffer + 30;
       } else {
         safetyEnvelope = 110;
       }
 
-      const waveUpper = Math.sin(sampleX * 0.015) * 20;
-      const waveLower = Math.cos(sampleX * 0.015) * 20;
+      const waveUpper = Math.sin(cursor.nextWallX * 0.015) * 20;
+      const waveLower = Math.cos(cursor.nextWallX * 0.015) * 20;
 
       map.upperWallSpline.push({
-        x: sampleX,
-        y: Math.max(10, closestNode.y - safetyEnvelope + waveUpper)
+        x: cursor.nextWallX,
+        y: Math.max(
+          WORLD_WALL_MARGIN,
+          closestNode.y - safetyEnvelope + waveUpper,
+        ),
       });
       map.lowerWallSpline.push({
-        x: sampleX,
-        y: Math.min(390, closestNode.y + safetyEnvelope + waveLower)
+        x: cursor.nextWallX,
+        y: Math.min(
+          WORLD_VIEWPORT_HEIGHT - WORLD_WALL_MARGIN,
+          closestNode.y + safetyEnvelope + waveLower,
+        ),
       });
 
-      sampleX += this.STEP_RESOLUTION;
+      cursor.nextWallX += this.STEP_RESOLUTION;
     }
+
+    // Keep each collectible's full radius inside the generated playable corridor.
+    for (let i = firstCoreIndex; i < map.cores.length; i++) {
+      const core = map.cores[i];
+      const { upperY, lowerY } = this.getWallBoundaries(map, core.x);
+      const minY = Math.max(core.radius, upperY + core.radius);
+      const maxY = Math.min(
+        WORLD_VIEWPORT_HEIGHT - core.radius,
+        lowerY - core.radius,
+      );
+      core.y = Math.max(minY, Math.min(maxY, core.y));
+    }
+
+    return cursor;
   }
 
   /**
    * Interpolates the upper and lower wall boundaries for a given x coordinate.
    * Handles offset adjustment due to culled/sliced starting elements.
    */
-  public static getWallBoundaries(map: MapData, x: number): WallBounds {
+  public static getWallBoundaries(map: ReadonlyMapData, x: number): WallBounds {
     if (map.upperWallSpline.length === 0) {
       return { upperY: 50, lowerY: 350 };
     }
@@ -96,14 +137,14 @@ export class WorldGenerator {
     if (indexA < 0) {
       return {
         upperY: map.upperWallSpline[0].y,
-        lowerY: map.lowerWallSpline[0].y
+        lowerY: map.lowerWallSpline[0].y,
       };
     }
     if (indexB >= maxLen) {
       const lastIdx = maxLen - 1;
       return {
         upperY: map.upperWallSpline[lastIdx].y,
-        lowerY: map.lowerWallSpline[lastIdx].y
+        lowerY: map.lowerWallSpline[lastIdx].y,
       };
     }
 
@@ -122,7 +163,11 @@ export class WorldGenerator {
   /**
    * Checks if the given coordinates represent a wall collision.
    */
-  public static checkWallCollision(map: MapData, x: number, y: number): boolean {
+  public static checkWallCollision(
+    map: ReadonlyMapData,
+    x: number,
+    y: number,
+  ): boolean {
     const { upperY, lowerY } = this.getWallBoundaries(map, x);
     return y <= upperY || y >= lowerY;
   }
@@ -130,15 +175,23 @@ export class WorldGenerator {
   /**
    * Culls old map elements behind the threshold to maintain a small memory footprint.
    */
-  public static cullBehindCamera(map: MapData, thresholdX: number): void {
+  public static cullBehindCamera(
+    map: MapData,
+    thresholdX: number,
+    preserveNodeId?: string,
+  ): void {
     // Cull old nodes
-    map.nodes = map.nodes.filter(node => node.x >= thresholdX);
+    map.nodes = map.nodes.filter(
+      (node) => node.x >= thresholdX || node.id === preserveNodeId,
+    );
 
     // Cull old cores
-    map.cores = map.cores.filter(core => core.x >= thresholdX);
+    map.cores = map.cores.filter((core) => core.x >= thresholdX);
 
     // Cull spline boundaries
-    const firstKeepIndex = map.upperWallSpline.findIndex(pt => pt.x >= thresholdX);
+    const firstKeepIndex = map.upperWallSpline.findIndex(
+      (pt) => pt.x >= thresholdX,
+    );
     if (firstKeepIndex > 0) {
       map.upperWallSpline.splice(0, firstKeepIndex);
       map.lowerWallSpline.splice(0, firstKeepIndex);
