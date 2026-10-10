@@ -8,8 +8,21 @@ const createMockElement = () => ({
   style: {} as Record<string, string>,
   classList: {
     add: vi.fn(),
-    remove: vi.fn()
+    remove: vi.fn(),
   },
+  attributes: {} as Record<string, string>,
+  setAttribute: vi.fn(function (this: any, key: string, value: string) {
+    this.attributes[key] = value;
+  }),
+  removeAttribute: vi.fn(function (this: any, key: string) {
+    delete this.attributes[key];
+  }),
+  toggleAttribute: vi.fn(function (this: any, key: string, force?: boolean) {
+    if (force) this.attributes[key] = '';
+    else delete this.attributes[key];
+    return Boolean(force);
+  }),
+  focus: vi.fn(),
   textContent: '',
   innerHTML: '',
   disabled: false,
@@ -26,7 +39,7 @@ const createMockElement = () => ({
   querySelector: vi.fn(() => null),
   querySelectorAll: vi.fn(() => []),
   addEventListener: vi.fn(),
-  click: vi.fn()
+  click: vi.fn(),
 });
 
 describe('UIController', () => {
@@ -40,17 +53,17 @@ describe('UIController', () => {
         if (!elementsById[id]) elementsById[id] = createMockElement();
         return elementsById[id];
       },
-      createElement: () => createMockElement()
+      createElement: () => createMockElement(),
     };
     Object.defineProperty(globalThis, 'document', {
       value: mockDocument,
       writable: true,
-      configurable: true
+      configurable: true,
     });
     Object.defineProperty(globalThis, 'window', {
       value: { devicePixelRatio: 2 },
       writable: true,
-      configurable: true
+      configurable: true,
     });
     ui = new UIController();
   });
@@ -63,29 +76,44 @@ describe('UIController', () => {
     const canvas = {
       width: 800,
       height: 400,
-      getBoundingClientRect: () => ({ left: 10, top: 20, width: 400, height: 200 })
+      getBoundingClientRect: () => ({
+        left: 10,
+        top: 20,
+        width: 400,
+        height: 200,
+      }),
     } as unknown as HTMLCanvasElement;
 
     // sparkX = 100 -> cameraOffsetX = -100 + 150 = 50
     const coords = ui.getWorldCoords(210, 120, 100, canvas);
+    expect(coords).not.toBeNull();
+    if (!coords) return;
     // cssX = 200, cssY = 100
-    // localX = (200/400) * (800/2) = 200; localY = (100/200) * (400/2) = 100
-    // worldX = 200 - 50 = 150; worldY = 100
-    expect(coords.worldX).toBe(150);
-    expect(coords.worldY).toBe(100);
+    // The full 400-unit world height scales to 200 CSS pixels (0.5 CSS/world).
+    // worldX = 200/0.5 - 50 = 350; worldY = 100/0.5 = 200.
+    expect(coords.worldX).toBe(350);
+    expect(coords.worldY).toBe(200);
   });
 
   test('should shift world coordinates based on spark camera offset', () => {
     const canvas = {
       width: 800,
       height: 400,
-      getBoundingClientRect: () => ({ left: 0, top: 0, width: 400, height: 200 })
+      getBoundingClientRect: () => ({
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 200,
+      }),
     } as unknown as HTMLCanvasElement;
 
     // sparkX = 1150 -> cameraOffsetX = -1150 + 150 = -1000
     const coords = ui.getWorldCoords(200, 100, 1150, canvas);
-    // localX = 200 -> worldX = 200 - (-1000) = 1200
-    expect(coords.worldX).toBe(1200);
+    expect(coords).not.toBeNull();
+    if (!coords) return;
+    // localX = 200/0.5 = 400 -> worldX = 400 - (-1000) = 1400
+    expect(coords.worldX).toBe(1400);
+    expect(coords.worldY).toBe(200);
   });
 
   // --- Pause overlay ---
@@ -98,6 +126,7 @@ describe('UIController', () => {
     ui.showPauseOverlay(false);
     expect(el('pause-overlay').style.opacity).toBe('0');
     expect(el('pause-overlay').style.pointerEvents).toBe('none');
+    expect(el('pause-overlay').attributes['aria-hidden']).toBe('true');
   });
 
   test('should toggle launch overlay visibility and pointer events', () => {
@@ -140,12 +169,22 @@ describe('UIController', () => {
   test('should switch active tab classes', () => {
     ui.switchTab(ViewTab.TERMINAL, ViewTab.COCKPIT);
 
-    expect(el('tab-cockpit').classList.remove).toHaveBeenCalledWith('tab-active');
+    expect(el('tab-cockpit').classList.remove).toHaveBeenCalledWith(
+      'tab-active',
+    );
     expect(el('tab-terminal').classList.add).toHaveBeenCalledWith('tab-active');
-    expect(el('view-cockpit').classList.remove).toHaveBeenCalledWith('view-active');
-    expect(el('view-cockpit').classList.add).toHaveBeenCalledWith('view-hidden');
-    expect(el('view-terminal').classList.remove).toHaveBeenCalledWith('view-hidden');
-    expect(el('view-terminal').classList.add).toHaveBeenCalledWith('view-active');
+    expect(el('view-cockpit').classList.remove).toHaveBeenCalledWith(
+      'view-active',
+    );
+    expect(el('view-cockpit').classList.add).toHaveBeenCalledWith(
+      'view-hidden',
+    );
+    expect(el('view-terminal').classList.remove).toHaveBeenCalledWith(
+      'view-hidden',
+    );
+    expect(el('view-terminal').classList.add).toHaveBeenCalledWith(
+      'view-active',
+    );
   });
 
   // --- HUD sync ---
@@ -189,6 +228,38 @@ describe('UIController', () => {
     expect(el('telemetry-sigma').textContent).toBe('σ = 1');
     expect(el('telemetry-velocity').textContent).toBe('360 px/s');
     expect(el('telemetry-reach').textContent).toBe('180px');
+  });
+
+  test('does not rewrite unchanged telemetry or sector readouts', () => {
+    const trackWrites = (target: Record<string, any>, property: string) => {
+      let value = target[property];
+      let writes = 0;
+      Object.defineProperty(target, property, {
+        configurable: true,
+        get: () => value,
+        set: (next: unknown) => {
+          writes++;
+          value = next;
+        },
+      });
+      return () => writes;
+    };
+    const tracked = [
+      trackWrites(el('telemetry-sigma'), 'textContent'),
+      trackWrites(el('telemetry-velocity'), 'textContent'),
+      trackWrites(el('telemetry-reach'), 'textContent'),
+      trackWrites(el('sector-hud-label'), 'textContent'),
+      trackWrites(el('sector-hud-bar').style, 'width'),
+    ];
+
+    ui.updateTelemetry('N/A', '360 px/s', '180px');
+    ui.updateSectorProgress(0.5, 1);
+    const initialWrites = tracked.map((countWrites) => countWrites());
+    ui.updateTelemetry('N/A', '360 px/s', '180px');
+    ui.updateSectorProgress(0.5, 1);
+
+    expect(initialWrites).toEqual([1, 1, 1, 1, 1]);
+    expect(tracked.map((countWrites) => countWrites())).toEqual(initialWrites);
   });
 
   test('should update synth parameter readouts', () => {
@@ -242,7 +313,7 @@ describe('UIController', () => {
     el('leaderboard-list').appendChild = vi.fn();
     ui.updateLeaderboardDisplay([
       { score: 500, sector: 2, date: 'Oct 6' },
-      { score: 300, sector: 1, date: 'Oct 5' }
+      { score: 300, sector: 1, date: 'Oct 5' },
     ]);
     expect(el('leaderboard-list').appendChild).toHaveBeenCalledTimes(2);
   });
@@ -279,14 +350,33 @@ describe('UIController', () => {
   });
 
   test('should show next skin cost when skins remain locked', () => {
-    const saveState = { unlockedSkins: [0], activeSkinId: 0, totalCores: 0 } as any;
+    const saveState = {
+      unlockedSkins: [0],
+      activeSkinId: 0,
+      totalCores: 0,
+    } as any;
+    ui.syncSkinButton(saveState);
+    expect(el('buy-skin-label').textContent).toBe('Unlock Cyber Pink');
+    expect(el('buy-skin-cost').textContent).toBe('30 Cores');
+  });
+
+  test('shows the first missing skin when saved ownership IDs have gaps', () => {
+    const saveState = {
+      unlockedSkins: [0, 2],
+      activeSkinId: 0,
+      totalCores: 0,
+    } as any;
     ui.syncSkinButton(saveState);
     expect(el('buy-skin-label').textContent).toBe('Unlock Cyber Pink');
     expect(el('buy-skin-cost').textContent).toBe('30 Cores');
   });
 
   test('should show cycle option when all skins unlocked', () => {
-    const saveState = { unlockedSkins: [0, 1, 2, 3], activeSkinId: 0, totalCores: 0 } as any;
+    const saveState = {
+      unlockedSkins: [0, 1, 2, 3],
+      activeSkinId: 0,
+      totalCores: 0,
+    } as any;
     ui.syncSkinButton(saveState);
     expect(el('buy-skin-label').textContent).toBe('Cycle Active Theme');
     expect(el('buy-skin-cost').textContent).toBe('FREE');
@@ -299,7 +389,7 @@ describe('UIController', () => {
     expect(state).toEqual({
       subSteppingEnabled: false,
       safetyGapsEnabled: false,
-      collinearFallbackEnabled: false
+      collinearFallbackEnabled: false,
     });
 
     el('toggle-substep').checked = true;
@@ -308,7 +398,7 @@ describe('UIController', () => {
     expect(ui.getCalibrationState()).toEqual({
       subSteppingEnabled: true,
       safetyGapsEnabled: true,
-      collinearFallbackEnabled: true
+      collinearFallbackEnabled: true,
     });
   });
 });

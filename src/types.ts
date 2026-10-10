@@ -27,6 +27,20 @@ export interface MapData {
   lowerWallSpline: SplinePoint[];
 }
 
+export interface ReadonlyMapData {
+  readonly nodes: ReadonlyArray<Readonly<PivotNode>>;
+  readonly cores: ReadonlyArray<Readonly<EnergyCore>>;
+  readonly upperWallSpline: ReadonlyArray<Readonly<SplinePoint>>;
+  readonly lowerWallSpline: ReadonlyArray<Readonly<SplinePoint>>;
+}
+
+export interface GenerationCursor {
+  lastAnchorX: number;
+  nextWallX: number;
+  nextNodeId: number;
+  nextCoreId: number;
+}
+
 export interface WallBounds {
   upperY: number;
   lowerY: number;
@@ -43,6 +57,12 @@ export interface TrailBuffer {
   length: number;
 }
 
+export interface ReadonlyTrailBuffer {
+  readonly points: ReadonlyArray<Readonly<TrailPoint>>;
+  readonly head: number;
+  readonly length: number;
+}
+
 export interface SparkState {
   x: number;
   y: number;
@@ -57,7 +77,6 @@ export interface SparkState {
   combo: number;
   score: number;
   collectedInRun: number;
-  activeNearMisses: Set<number>;
   shield: number;
   maxShield: number;
   shieldInvulnFrames: number;
@@ -69,17 +88,35 @@ export interface CalibrationState {
   collinearFallbackEnabled: boolean;
 }
 
+export type RunContext =
+  | { mode: 'STANDARD' }
+  | { mode: 'DAILY'; challengeId: string; rulesVersion: number };
+
+export interface RunResult {
+  context: RunContext;
+  score: number;
+  sectorReached: number;
+  collectedCores: number;
+  x: number;
+  y: number;
+}
+
 export interface EngineCallbacks {
   onShieldChanged(current: number, max: number): void;
   onScoreChanged(score: number, combo: number): void;
-  onCoreCollected(runCores: number, totalCores: number, coreX: number, coreY: number): void;
+  onCoreCollected(runCores: number, coreX: number, coreY: number): void;
   onSectorLeap(sectorIndex: number): void;
   onNearMiss(combo: number, x: number, y: number): void;
   onDangerProximity(active: boolean): void;
   onShieldBounce(shield: number, x: number, y: number): void;
-  onCrash(x: number, y: number, finalScore: number, sectorReached: number, isNewHighScore: boolean, isNewDailyBest: boolean, dailyBest: number): void;
+  onRunEnded(result: RunResult): void;
   onTetherAcquired(nodeId: string): void;
   onTetherReleased(): void;
-  onTelemetryUpdate(sigma: string, velocity: string, sectorProgress: number, sectorIndex: number): void;
+  onTelemetryUpdate(
+    sigma: string,
+    velocity: string,
+    sectorProgress: number,
+    sectorIndex: number,
+  ): void;
   onLog(message: string, style: 'info' | 'warn' | 'alert' | 'success'): void;
 }

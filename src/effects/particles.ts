@@ -13,12 +13,22 @@ export class ParticleEngine {
   private maxParticles: number;
   private pool: Particle[];
   private activeCount: number = 0;
+  private reducedMotion = false;
 
   constructor(maxParticles: number = 150) {
     this.maxParticles = maxParticles;
     this.pool = new Array(this.maxParticles);
     for (let i = 0; i < this.maxParticles; i++) {
-      this.pool[i] = { x: 0, y: 0, vx: 0, vy: 0, radius: 0, color: '', alpha: 0, decay: 0 };
+      this.pool[i] = {
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        radius: 0,
+        color: '',
+        alpha: 0,
+        decay: 0,
+      };
     }
   }
 
@@ -26,12 +36,25 @@ export class ParticleEngine {
     return this.activeCount;
   }
 
+  public setReducedMotion(enabled: boolean): void {
+    this.reducedMotion = enabled;
+  }
+
   public getPool(): ReadonlyArray<Particle> {
     return this.pool;
   }
 
-  public spawn(x: number, y: number, color: string, speed: number = 4, count: number = 10): void {
-    for (let i = 0; i < count; i++) {
+  public spawn(
+    x: number,
+    y: number,
+    color: string,
+    speed: number = 4,
+    count: number = 10,
+  ): void {
+    const particleCount = this.reducedMotion
+      ? Math.max(1, Math.ceil(count * 0.4))
+      : count;
+    for (let i = 0; i < particleCount; i++) {
       if (this.activeCount >= this.maxParticles) return;
 
       const angle = Math.random() * Math.PI * 2;
@@ -51,12 +74,14 @@ export class ParticleEngine {
     }
   }
 
-  public update(): void {
+  public update(elapsedSeconds = 1 / 60): void {
+    const frameScale = Math.max(0, elapsedSeconds) * 60;
+    if (frameScale === 0) return;
     for (let i = 0; i < this.activeCount; i++) {
       const p = this.pool[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.alpha -= p.decay;
+      p.x += p.vx * frameScale;
+      p.y += p.vy * frameScale;
+      p.alpha -= p.decay * frameScale;
 
       if (p.alpha <= 0) {
         // Swap-and-Pop garbage-free removal
@@ -67,6 +92,10 @@ export class ParticleEngine {
         i--;
       }
     }
+  }
+
+  public clear(): void {
+    this.activeCount = 0;
   }
 
   public draw(ctx: CanvasRenderingContext2D, cameraOffsetX: number): void {
