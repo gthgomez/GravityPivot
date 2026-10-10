@@ -740,6 +740,13 @@ describe('GravityPivotEngine', () => {
 
   test('sector cooldown advances on simulation time and freezes while paused', () => {
     const spark = engine.getSparkState() as any;
+    // This test covers cooldown bookkeeping only. Wall layouts are generated
+    // from an unseeded RNG, so a stray hull impact (or a full shield drain that
+    // crashes the run and stops physicsTick) used to make the outcome random.
+    // An indestructible spark removes that unrelated variable.
+    spark.maxShield = Number.MAX_SAFE_INTEGER;
+    spark.shield = Number.MAX_SAFE_INTEGER;
+
     spark.x = 9999;
     spark.vx = 10;
     spark.vy = 0;
