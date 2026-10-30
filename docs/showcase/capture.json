@@ -1,0 +1,18 @@
+{
+  "revision": "6ae1ed64275ae5753ed22bd13afe72897f4122af",
+  "capturedAt": "2026-10-30T12:11:17.646Z",
+  "browser": "154.0.8037.57",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "pageErrors": [],
+  "fixture": "Fresh local storage; Daily clock fixed to 2026-10-06T12:00:00Z; no debug mode or save mutation",
+  "verified": [
+    "canvas visible",
+    "tether acquired with Space",
+    "tether released with Space",
+    "run reset through the visible Reset Run button",
+    "upgrades opened through UI"
+  ]
+}

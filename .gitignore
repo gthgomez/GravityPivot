@@ -9,3 +9,6 @@ playwright-report/
 test-results/
 blob-report/
 coverage/
+
+# Raw showcase recordings are regenerated locally.
+/docs/showcase/raw/
