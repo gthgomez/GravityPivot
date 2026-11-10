@@ -12,10 +12,10 @@ The browser measurements ran in Playwright's headless Chromium inside a Linux de
 
 Each browser ran an 8-second Standard flight with the production build and no intentional tether input. Frame intervals were measured between `requestAnimationFrame` callbacks. These are scheduling intervals, not isolated GPU render times.
 
-| Environment | Frames / 8 s | p50 interval | p95 | p99 | Max | Script CPU / 8 s |
-|---|---:|---:|---:|---:|---:|---:|
-| Desktop Chromium headless | 435 | 16.7 ms | 33.3 ms | 49.9 ms | 66.7 ms | 0.572 s |
-| Pixel 7 Chromium emulation | 480 | 16.7 ms | 16.7 ms | 16.8 ms | 33.4 ms | 0.571 s |
+| Environment                | Frames / 8 s | p50 interval |     p95 |     p99 |     Max | Script CPU / 8 s |
+| -------------------------- | -----------: | -----------: | ------: | ------: | ------: | ---------------: |
+| Desktop Chromium headless  |          435 |      16.7 ms | 33.3 ms | 49.9 ms | 66.7 ms |          0.572 s |
+| Pixel 7 Chromium emulation |          480 |      16.7 ms | 16.7 ms | 16.8 ms | 33.4 ms |          0.571 s |
 
 The desktop container run misses the provisional 16.7 ms p95 target. The mobile emulation result meets it, but does not prove physical-device performance. Repeat both measurements on documented physical devices before making a performance claim or tuning Canvas rendering.
 
@@ -36,13 +36,13 @@ Before the UI optimization, a six-second flight produced 367 mutations each on t
 
 After adding equality guards, the same six-second workload produced:
 
-| Element | Desktop Chromium | Pixel 7 emulation |
-|---|---:|---:|
-| Telemetry sigma | 0 | 0 |
-| Telemetry velocity | 1 | 1 |
-| Telemetry reach | 0 | 0 |
-| Sector label | 0 | 0 |
-| Sector progress bar | 367 | 366 |
+| Element             | Desktop Chromium | Pixel 7 emulation |
+| ------------------- | ---------------: | ----------------: |
+| Telemetry sigma     |                0 |                 0 |
+| Telemetry velocity  |                1 |                 1 |
+| Telemetry reach     |                0 |                 0 |
+| Sector label        |                0 |                 0 |
+| Sector progress bar |              367 |               366 |
 
 The five measured targets fell from about 1,835 to about 367 mutations per six seconds, an 80% reduction. The remaining writes are the changing progress bar and a velocity change.
 
@@ -55,11 +55,11 @@ Three independent runs used the same versioned Daily seed and executed 10,000 fi
 Across the three runs, fixed-tick timings were:
 
 | Statistic | Observed range |
-|---|---:|
-| p50 | 5.1–5.8 μs |
-| p95 | 13.4–20.6 μs |
-| p99 | 35.7–64.4 μs |
-| Maximum | 5.7–9.7 ms |
+| --------- | -------------: |
+| p50       |     5.1–5.8 μs |
+| p95       |   13.4–20.6 μs |
+| p99       |   35.7–64.4 μs |
+| Maximum   |     5.7–9.7 ms |
 
 The rare maximum outliers are consistent with runtime pauses in this short Node profile and were not isolated further. During each run, retained world data stayed bounded: 18–22 anchors, 53–74 cores, and 315–373 samples per wall. The pooled particle engine peaked at 18 active particles out of 150. These samples show no growing retained world or particle pool during the exercised extensions; private near-miss episode state was not separately instrumented.
 

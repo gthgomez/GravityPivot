@@ -9,11 +9,11 @@ Use this short script with five people who have not played GravityPivot. Do not 
 Record one row per person. Do not collect names or other personal data.
 
 | Session | Device / viewport | Seconds to first deliberate tether and release | Pause/reset confusion | Understood collision cause? | Retried? | Notable quote or observation |
-| --- | --- | ---: | --- | --- | --- | --- |
-| 1 | | | | | | |
-| 2 | | | | | | |
-| 3 | | | | | | |
-| 4 | | | | | | |
-| 5 | | | | | | |
+| ------- | ----------------- | ---------------------------------------------: | --------------------- | --------------------------- | -------- | ---------------------------- |
+| 1       |                   |                                                |                       |                             |          |                              |
+| 2       |                   |                                                |                       |                             |          |                              |
+| 3       |                   |                                                |                       |                             |          |                              |
+| 4       |                   |                                                |                       |                             |          |                              |
+| 5       |                   |                                                |                       |                             |          |                              |
 
 After the five sessions, group repeated issues and choose one change at a time. Do not use these sessions as statistical proof of fairness or broad accessibility. Re-run the same short script after onboarding or cockpit changes. Keep Daily geometry changes separate until their rules version and seeded safety checks are updated.

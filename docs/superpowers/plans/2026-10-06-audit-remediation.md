@@ -39,25 +39,25 @@ The plan is the only repository change in this planning session. Verification co
 
 ## Execution order and dependencies
 
-| Delivery | Result | Findings | Dependency |
-| --- | --- | --- | --- |
-| 0 | Reconciled source and reproduction baseline | Audit provenance | None |
-| 1 | Canonical checks and truthful Node support | GP-013, GP-017 partly | 0 |
-| 2 | Small browser harness | GP-012 | 1 |
-| 3 | Standard and Daily results separated | GP-001 | 1; extend 2 |
-| 4 | Continuous procedural world | GP-003 | 1 |
-| 5 | Reliable pause, resume, reset, and crash transitions | GP-004, GP-007 | 2, 3 |
-| 6 | Shared world, render, and input coordinates | GP-005 | 2, 4 |
-| 7 | Live particles during flight | GP-006 | 2, 5 |
-| 8 | Continuous near-miss episodes | GP-008 | 4, 5 |
-| 9 | Magnet independent of collision substeps | GP-009 | 5 |
-| 10 | Versioned, comparable Daily runs | GP-002, GP-015, GP-016 partly | 3–9 |
-| 11 | Validated saves and explicit persistence ownership | GP-011, GP-016 partly, GP-022 partly | 10 |
-| 12 | Pointer lifecycle and accessible player settings | GP-010, GP-015, GP-018 | 6, 10, 11 |
-| 13 | Repository safeguards and documentation | GP-014, GP-017, GP-021 | 1, stable 2, 10–12 |
-| 14 | Playable portfolio release | GP-020 | 3–13 |
-| 15 | Feel, onboarding, geometry progression | GP-019, product recommendations | 14 |
-| 16 | Measured performance and staged toolchain updates | GP-022, modernization | 14; rerun after 15 |
+| Delivery | Result                                               | Findings                             | Dependency         |
+| -------- | ---------------------------------------------------- | ------------------------------------ | ------------------ |
+| 0        | Reconciled source and reproduction baseline          | Audit provenance                     | None               |
+| 1        | Canonical checks and truthful Node support           | GP-013, GP-017 partly                | 0                  |
+| 2        | Small browser harness                                | GP-012                               | 1                  |
+| 3        | Standard and Daily results separated                 | GP-001                               | 1; extend 2        |
+| 4        | Continuous procedural world                          | GP-003                               | 1                  |
+| 5        | Reliable pause, resume, reset, and crash transitions | GP-004, GP-007                       | 2, 3               |
+| 6        | Shared world, render, and input coordinates          | GP-005                               | 2, 4               |
+| 7        | Live particles during flight                         | GP-006                               | 2, 5               |
+| 8        | Continuous near-miss episodes                        | GP-008                               | 4, 5               |
+| 9        | Magnet independent of collision substeps             | GP-009                               | 5                  |
+| 10       | Versioned, comparable Daily runs                     | GP-002, GP-015, GP-016 partly        | 3–9                |
+| 11       | Validated saves and explicit persistence ownership   | GP-011, GP-016 partly, GP-022 partly | 10                 |
+| 12       | Pointer lifecycle and accessible player settings     | GP-010, GP-015, GP-018               | 6, 10, 11          |
+| 13       | Repository safeguards and documentation              | GP-014, GP-017, GP-021               | 1, stable 2, 10–12 |
+| 14       | Playable portfolio release                           | GP-020                               | 3–13               |
+| 15       | Feel, onboarding, geometry progression               | GP-019, product recommendations      | 14                 |
+| 16       | Measured performance and staged toolchain updates    | GP-022, modernization                | 14; rerun after 15 |
 
 Implement sequentially initially. The table expresses technical dependencies; it does not require concurrent agents or a large branch holding all changes.
 
@@ -290,13 +290,13 @@ This is a measured design campaign after correctness, delivered in at least two 
 
 For each PR, keep a brief problem → behavior change → verification → material limitation description. Reproduce the original failure before the fix, then show the same scenario passing. Run targeted regressions while developing and the full canonical checks before handing off the PR. Run browser checks when wiring, input, rendering, saves, or lifecycle changes.
 
-| Milestone | Required evidence |
-| --- | --- |
-| Correct game | All P1 findings addressed; seeded seams/sector extension tests; lifecycle and input-coordinate browser regressions; actual playable smoke |
-| Fair Daily | UTC/versioned identity; upgrade/config/input normalization; midnight and simulation-clock regressions; identical-input replay comparison |
-| Durable product | Migration fixtures; storage failure/future-schema preservation; refresh journey; pointer cancellation; keyboard/motion/device observations |
-| Portfolio release | Working deployed URL; truthful README visual/claims; passing required CI; settings readback; documented manual playtest |
-| Improved game | First-time observations, capped geometry curve, clear release feedback, measured performance and remaining limitations |
+| Milestone         | Required evidence                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Correct game      | All P1 findings addressed; seeded seams/sector extension tests; lifecycle and input-coordinate browser regressions; actual playable smoke  |
+| Fair Daily        | UTC/versioned identity; upgrade/config/input normalization; midnight and simulation-clock regressions; identical-input replay comparison   |
+| Durable product   | Migration fixtures; storage failure/future-schema preservation; refresh journey; pointer cancellation; keyboard/motion/device observations |
+| Portfolio release | Working deployed URL; truthful README visual/claims; passing required CI; settings readback; documented manual playtest                    |
+| Improved game     | First-time observations, capped geometry curve, clear release feedback, measured performance and remaining limitations                     |
 
 The first implementation action is Delivery 0, followed by the small verification PR and browser harness. The campaign is complete when the existing game meets these gates; extra features and major upgrades are optional follow-on work, not prerequisites for calling the repair campaign successful.
 
